@@ -1,0 +1,82 @@
+\documentclass[12pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{tcolorbox}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{fancyhdr}
+\usepackage{footmisc}
+\usepackage{xcolor}
+
+% Set up hyperref colors and options
+\hypersetup{colorlinks=true, linkcolor=blue, filecolor=magenta, urlcolor=cyan, pdfpagemode=FullScreen}
+
+% Custom theorem-like environments with tcolorbox
+\newtcolorbox{definitionbox}[1][]{colframe=blue!25, colback=blue!5, title=Definition, fonttitle=\bfseries,#1}
+\newtcolorbox{theorembox}[1][]{colframe=green!25, colback=green!5, title=Theorem, fonttitle=\bfseries,#1}
+\newtcolorbox{lemmabox}[1][]{colframe=orange!25, colback=orange!5, title=Lemma, fonttitle=\bfseries,#1}
+\newtcolorbox{examplebox}[1][]{colframe=purple!25, colback=purple!5, title=Example, fonttitle=\bfseries,#1}
+
+% Customize lists
+\setlist{nosep, leftmargin=*}
+\setlist[enumerate]{label=\arabic*., leftmargin=1.5em}
+\setlist[itemize]{leftmargin=1.5em}
+
+% Header and footer
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ==============================================================================
+% DOCUMENT STRUCTURE GUIDELINES
+% ==============================================================================
+
+% 1. Use \section{} for major topics covered in the lecture.
+%    Example: \section{Introduction to Linear Algebra}
+
+% 2. Use \subsection{} for subtopics within each major section.
+%    Example: \subsection{Vector Spaces}
+
+% 3. For definitions, use the definitionbox environment:
+%    \begin{definitionbox}
+%        A vector space is a set $V$ equipped with...
+%    \end{definitionbox}
+
+% 4. For theorems, lemmas, and propositions, use theorembox or lemmabox:
+%    \begin{theorembox}
+%        Let $V$ be a finite-dimensional vector space. Then...
+%    \end{theorembox}
+
+% 5. Use itemized or enumerated lists for key points, steps, or examples:
+%    \begin{itemize}
+%        \item First key point.
+%        \item Second key point.
+%    \end{itemize}
+
+% 6. Equations should be typeset using:
+%    - Inline math: $a^2 + b^2 = c^2$
+%    - Display math: $$a^2 + b^2 = c^2$$ or \begin{equation}...\end{equation}
+
+% 7. For examples, use the examplebox environment:
+%    \begin{examplebox}
+%        Consider the matrix $A = \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix}$.
+%    \end{examplebox}
+
+% 8. Include a glossary of terms and bibliographic references as footnotes where appropriate. Use \href{} for URLs.
+%    \footnote{Glossary entry: A \textit{vector space} is...}
+%    \footnote{Author (Year). \textit{Title}. Publisher. \href{https://example.com}{Link}}
+
+% 9. Ensure all cross-references (sections, equations, etc.) are properly linked.
+
+\begin{document}
+
+%% <INSERT CONTENT HERE>
+
+\end{document}

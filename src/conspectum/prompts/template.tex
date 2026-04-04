@@ -1,0 +1,184 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[<FONTENC>]{fontenc}
+\usepackage{lmodern}
+\usepackage[<BABEL_LANG>]{babel}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{tcolorbox}
+\usepackage{enumitem}
+\usepackage{array, booktabs}
+\usepackage{multicol}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{footmisc}
+\usepackage{xcolor}
+
+\geometry{top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm, headheight=15pt}
+\hypersetup{colorlinks=true, linkcolor=blue, filecolor=magenta, urlcolor=cyan, pdfpagemode=FullScreen}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\footnotesize \textit{<INSERT TITLE HERE>}}
+\rhead{\thepage}
+
+% Custom colors for tcolorbox
+\tcbuselibrary{theorems, skins, breakable}
+\definecolor{thmcolor}{RGB}{200,230,255}
+\definecolor{defcolor}{RGB}{230,250,220}
+\definecolor{excolor}{RGB}{255,240,210}
+
+% Theorem environment
+\newtheorem{theorem}{<THEOREM_NAME>}[section]
+\newenvironment{thmbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=thmcolor, colframe=blue!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Definition environment
+\newtheorem{definition}{<DEFINITION_NAME>}[section]
+\newenvironment{defbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=defcolor, colframe=green!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Lemma environment
+\newtheorem{lemma}{<LEMMA_NAME>}[section]
+\newenvironment{lembox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=yellow!10, colframe=orange!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Proposition environment
+\newtheorem{proposition}{<PROPOSITION_NAME>}[section]
+\newenvironment{propbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=purple!5, colframe=purple!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Corollary environment
+\newtheorem{corollary}{<COROLLARY_NAME>}[section]
+\newenvironment{corbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=cyan!5, colframe=cyan!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Example environment
+\newtheorem{example}{<EXAMPLE_NAME>}[section]
+\newenvironment{exbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=excolor, colframe=brown!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Remark environment
+\newtheorem{remark}{<REMARK_NAME>}[section]
+\newenvironment{rembox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=gray!5, colframe=gray!50, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Customize enumerate and itemize
+\setlist[enumerate]{leftmargin=*, itemsep=2pt, topsep=4pt}
+\setlist[itemize]{leftmargin=*, itemsep=2pt, topsep=4pt}
+
+% Custom table environment with caption, placement, and column spec
+\newenvironment{customtable}[3][htbp]{%
+  % #1 = optional: placement (default: htbp)
+  % #2 = mandatory: column specification (e.g., {ccc}, {l|c|r})
+  % #3 = mandatory: table caption (goes above the table)
+  \begin{table}[#1]
+  \centering
+  \renewcommand{\arraystretch}{1.2}
+  \caption{#3}
+  \begin{tabular}{#2}
+}{%
+  \end{tabular}
+  \end{table}
+}
+
+\title{<INSERT TITLE HERE>}
+
+% ============================================================
+% DOCUMENT STRUCTURE GUIDELINES
+% ============================================================
+%
+% === 1. DOCUMENT STRUCTURE & FLOW ===
+% - Use \section{}, \subsection{}, \subsubsection{} to mirror lecture flow.
+% - Limit depth: section → subsection → subsubsection (avoid deeper).
+% - Start each section with a 1–2 sentence summary of what follows.
+% - Example:
+%   \section{Introduction}
+%   This section introduces the core concepts of vector spaces...
+
+% === 2. CONTENT ACCURACY ===
+% - Faithfully represent the lecture: definitions, theorems, examples, logic.
+% - Do NOT add external content unless noted (e.g., in footnotes).
+% - Paraphrase for clarity; use direct quotes sparingly.
+
+% === 3. MATHEMATICAL TYPESETTING ===
+% - Always use math mode: $x^2$, \[ \int f(x) dx \], or \begin{equation}.
+% - Number equations only if referenced later (use \label{} and \cref{}).
+% - Use semantic commands: \mathbb{R}, \mathcal{L}, \vec{v}, \nabla, etc.
+% - Example:
+%   \begin{equation}\label{eq:euler}
+%   e^{i\pi} + 1 = 0
+%   \end{equation}
+%   As shown in \cref{eq:euler}, ...
+
+% === 4. CUSTOM ENVIRONMENTS (USE AS INTENDED) ===
+% - \begin{defbox}[Title]     → For definitions (green-tinted).
+% - \begin{thmbox}[Title]     → For theorems/lemmas/propositions (blue-tinted).
+% - \begin{exbox}[Title]      → For examples (beige-tinted).
+% - \begin{rembox}[Title]     → For remarks/notes (gray-tinted).
+%
+% Rules:
+% - Always include a title: \begin{thmbox}[Pythagorean Theorem]}
+% - Keep content concise; avoid long paragraphs inside boxes.
+% - Do NOT nest boxes.
+% - For formal numbering, wrap amsthm environments inside:
+%   \begin{thmbox}[Mean Value Theorem]
+%   \begin{theorem}
+%   Let $f$ be continuous on $[a,b]$...
+%   \end{theorem}
+%   \end{thmbox}
+
+% === 5. LISTS AND ENUMERATIONS ===
+% - Use itemize for unordered key points:
+%   \begin{itemize}
+%     \item Point A
+%     \item Point B
+%   \end{itemize}
+% - Use enumerate for step-by-step procedures:
+%   \begin{enumerate}
+%     \item Step 1: Define domain.
+%     \item Step 2: Compute derivative.
+%   \end{enumerate}
+% - Avoid nesting >2 levels.
+
+% === 6. TABLES (USE customtable) ===
+% - Syntax:
+%   \begin{customtable}[placement]{column-spec}{Caption}
+%   \toprule
+%   Col1 & Col2 & Col3 \\
+%   \midrule
+%   Data & Data & Data \\
+%   \bottomrule
+%   \end{customtable}
+% - Example:
+%   \begin{customtable}[h]{lcc}{Experimental Results}
+%   \toprule
+%   Trial & Input & Output \\
+%   \midrule
+%   1 & 10 & 15 \\
+%   2 & 20 & 30 \\
+%   \bottomrule
+%   \end{customtable}
+% - Use booktabs rules (\toprule, \midrule, \bottomrule).
+% - No vertical lines; align numbers by decimal if needed.
+
+
+\begin{document}
+
+\maketitle
+\begin{abstract}<INSERT ABSTRACT HERE>\end{abstract}
+
+%% <INSERT CONTENT HERE>
+
+\end{document}

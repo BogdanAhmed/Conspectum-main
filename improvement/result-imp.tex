@@ -1,0 +1,617 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[english]{babel}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{tcolorbox}
+\usepackage{enumitem}
+\usepackage{array, booktabs}
+\usepackage{multicol}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{footmisc}
+\usepackage{xcolor}
+
+\geometry{top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm, headheight=15pt}
+\hypersetup{colorlinks=true, linkcolor=blue, filecolor=magenta, urlcolor=cyan, pdfpagemode=FullScreen}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\footnotesize \textit{The Concept of Information and Entropy in Probabilistic Systems}}
+\rhead{\thepage}
+
+% Custom colors for tcolorbox
+\tcbuselibrary{theorems, skins, breakable}
+\definecolor{thmcolor}{RGB}{200,230,255}
+\definecolor{defcolor}{RGB}{230,250,220}
+\definecolor{excolor}{RGB}{255,240,210}
+
+% Theorem environment
+\newtheorem{theorem}{Theorem}[section]
+\newenvironment{thmbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=thmcolor, colframe=blue!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Definition environment
+\newtheorem{definition}{Definition}[section]
+\newenvironment{defbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=defcolor, colframe=green!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Lemma environment
+\newtheorem{lemma}{Lemma}[section]
+\newenvironment{lembox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=yellow!10, colframe=orange!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Proposition environment
+\newtheorem{proposition}{Proposition}[section]
+\newenvironment{propbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=purple!5, colframe=purple!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Corollary environment
+\newtheorem{corollary}{Corollary}[section]
+\newenvironment{corbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=cyan!5, colframe=cyan!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Example environment
+\newtheorem{example}{Example}[section]
+\newenvironment{exbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=excolor, colframe=brown!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Remark environment
+\newtheorem{remark}{Remark}[section]
+\newenvironment{rembox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=gray!5, colframe=gray!50, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Customize enumerate and itemize
+\setlist[enumerate]{leftmargin=*, itemsep=2pt, topsep=4pt}
+\setlist[itemize]{leftmargin=*, itemsep=2pt, topsep=4pt}
+
+% Custom table environment with caption, placement, and column spec
+\newenvironment{customtable}[3][htbp]{%
+  % #1 = optional: placement (default: htbp)
+  % #2 = mandatory: column specification (e.g., {ccc}, {l|c|r})
+  % #3 = mandatory: table caption (goes above the table)
+  \begin{table}[#1]
+  \centering
+  \renewcommand{\arraystretch}{1.2}
+  \caption{#3}
+  \begin{tabular}{#2}
+}{%
+  \end{tabular}
+  \end{table}
+}
+
+\title{The Concept of Information and Entropy in Probabilistic Systems}
+
+\begin{document}
+
+\maketitle
+\begin{abstract}This lecture explores the foundational principles of information theory as introduced by Claude Shannon, focusing on how information and entropy are quantified in probabilistic systems. The key learning objective is understanding Shannon’s logic that less probable outcomes convey more information than highly probable ones and how this leads to the mathematical formulation of information and entropy.
+
+Shannon proposed that information is a function of the inverse probability of events. Specifically, information associated with a probabilistic event is defined as the logarithm of the inverse of its probability (commonly using a binary logarithm). Entropy, on the other hand, measures the average uncertainty of a system’s state. If a system can be in one of several states with known probabilities, entropy quantifies the system’s uncertainty, reaching zero when the outcome is fully known. Ultimately, the lecture provides a clear, intuitive connection between probabilistic events, information, and entropy, laying the groundwork for further study in information theory.\end{abstract}
+
+\section{Introduction to Information in Probabilistic Systems}
+In this opening section, we explore how individual events within a probabilistic framework convey different amounts of information. The intuitive notion is that a less likely event provides more information when it occurs than a highly probable one.
+
+\subsection{Example: Two Probabilistic Events}
+To illustrate this concept, consider two events involving a professor (referred to as "Professor N") and a student:
+
+\begin{itemize}
+    \item \textbf{Event 1:} Professor N enters a room and greets the students.
+    \item \textbf{Event 2:} Professor N enters the room and accuses a student of something serious.
+\end{itemize}
+
+The fundamental question posed is: \textit{Which event delivers more information (or pieces of information)?}
+
+\begin{rembox}[Intuition Behind Information Content]
+The key idea presented by Hermann Haken, a prominent physicist and founder of synergetics, is that the amount of information provided by an event is directly related to how surprising or unlikely that event is. Common, everyday events (like a greeting) convey less information, whereas rare or unexpected events (like a sudden accusation) convey more information.
+\end{rembox}
+
+In probabilistic terms, the "amount of surprise" associated with an event is a measure of information. Thus, less frequent (low-probability) events, when they happen, are more informative than frequent (high-probability) events. We can answer the initial question by comparing the likelihood of both events: since a typical greeting is far more regular and expected than an accusation, the accusation event provides more information.
+
+\subsection{Explanation: Probabilities and Information Content}
+Following the example, the next logical question is: \textit{Why does the less probable event carry more information?}
+
+The intuitive reasoning is tied to expectation and surprise. A common event (like a friendly greeting) has high probability and thus delivers less new knowledge (or information) to the observer. On the other hand, a rare event (such as an accusation) is unexpected and offers a greater volume of new knowledge. This brings us to the first key principle in information theory: the less probable an event, the more informational content it entails.
+
+\begin{rembox}[Shannon’s First Logical Step]
+Less probable events contain more information. Claude Shannon’s first logical step in formalizing information theory was recognizing that information is inversely related to the probability of a given event.
+\end{rembox}
+
+\subsection{Defining Information as a Function of Probability}
+Shannon formalized the intuitive idea by defining information as a function of probability. Suppose an event occurs with probability $p$, then the information it provides, denoted as $I(p)$, must satisfy the following:
+
+\[
+I(p) = f\left(\frac{1}{p}\right)
+\]
+
+In other words, information is a function of the inverse of the event’s probability. To capture the relationship quantitatively, we require a function that increases as $p$ decreases.
+
+\begin{defbox}[Information Content]
+If an event occurs with probability $p$, the amount of information associated with that event is a function of $\frac{1}{p}$.
+\end{defbox}
+
+\subsection{Combining Information from Independent Events}
+Shannon’s second logical step was to consider what happens when we encounter two independent events. Two events are said to be \textit{statistically independent} if the occurrence of one event does not affect the probability of the other.
+
+\begin{defbox}[Statistical Independence]
+Two events $A$ and $B$ are independent if the probability of both occurring together is the product of their individual probabilities: 
+\[
+P(A \cap B) = P(A) \times P(B)
+\]
+\end{defbox}
+
+Now, suppose we have two such independent events $A$ and $B$. Each event provides a certain amount of information. Intuitively, the total information from both events combined (if they are independent) should be the sum of the information from each event.
+
+\begin{rembox}[Additivity of Information]
+For two independent events, the total information provided by observing both is equal to the sum of the individual amounts of information. This is a fundamental assumption in Shannon’s formulation.
+\end{rembox}
+
+Mathematically, if $I(p_A)$ is the information provided by event $A$ and $I(p_B)$ is the information provided by event $B$, then the total information from both events (assuming they are independent) is:
+
+\[
+I(p_A \times p_B) = I(p_A) + I(p_B)
+\]
+
+This additivity property is crucial. It constrains the possible functions $f$ that we might use to relate probability and information.
+
+\subsection{Function Form of Information}
+Given the requirement that information is additive for independent events, we must now determine the specific function $f$ that satisfies:
+
+\[
+I\left(\frac{1}{p_A \times p_B}\right) = I\left(\frac{1}{p_A}\right) + I\left(\frac{1}{p_B}\right)
+\]
+
+From functional analysis, the only function that satisfies this additive property for probabilities is the logarithmic function. 
+
+\begin{thmbox}[Information as Logarithm of Inverse Probability]
+\begin{theorem}
+If information associated with an event of probability $p$ is additive for independent events, then the information function must be a logarithmic function of the inverse probability:
+\[
+I(p) = - \log(p)
+\]
+\end{theorem}
+\end{thmbox}
+
+We often use the binary logarithm (i.e., base 2) in information theory. Hence:
+
+\[
+I(p) = \log_2\left(\frac{1}{p}\right)
+\]
+
+This definition implies that when an event is very unlikely ($p \to 0$), the information content grows very large. Conversely, when an event is certain ($p \to 1$), the information content is zero.
+
+\subsection{Key Points Recap}
+Let’s summarize the key logical steps so far:
+
+\begin{itemize}
+    \item \textbf{Step 1:} Less probable events convey more information.
+    \item \textbf{Step 2:} The total information from two independent events is the sum of the individual information amounts.
+    \item \textbf{Step 3:} The function that meets the additivity requirement is the logarithmic function.
+\end{itemize}
+
+\subsection{Logarithmic Nature of Information}
+
+We build upon the earlier key point: the total information of independent events is additive. This property restricts the choice of function that measures information. Specifically, the only function that aligns with additivity and probability theory is the logarithmic function.
+
+\begin{thmbox}[Additivity of Information]
+If two probabilistic events are independent, the total information of their joint occurrence is the sum of the information content of each event individually.
+\begin{equation}
+    I(A \cap B) = I(A) + I(B)
+\end{equation}
+\end{thmbox}
+
+The only function that satisfies this additivity condition in a probabilistic setting is the logarithm. Therefore, the information $I$ associated with an event of probability $p$ is:
+\[
+I(p) = \log\left(\frac{1}{p}\right).
+\]
+
+\subsubsection{Choice of Logarithm Base}
+
+Traditionally, one may choose the natural logarithm (base $e$). However, if we choose a binary logarithm (base $2$), the information is measured in binary units: \emph{bits}.
+
+\begin{rembox}[Units of Information]
+    \begin{itemize}
+        \item \textbf{Natural Logarithm (base $e$):} Information is measured in “nats”.
+        \item \textbf{Binary Logarithm (base $2$):} Information is measured in bits.
+    \end{itemize}
+\end{rembox}
+
+Thus, when we measure information using base-2 logarithms, the interpretation of information becomes more intuitive—each unit of information is essentially the number of binary decisions (yes/no) required to resolve uncertainty.
+
+\subsection{From Information to Entropy}
+
+Now that we’ve formalized the idea of information for an individual event, let us proceed to the concept of entropy. Entropy extends the notion of information to an entire probabilistic system.
+
+\begin{defbox}[Entropy]
+If a system can be in $n$ distinct states, and the probability of the system being in the $i$-th state is $p_i$, the entropy $H$ of the system is defined as:
+\begin{equation}
+    H = - \sum_{i=1}^{n} p_i \log \left( p_i \right).
+\end{equation}
+\end{defbox}
+
+Here, $H$ represents the average uncertainty or average information content across all possible states of the system.
+
+\subsubsection{Intuition Behind Entropy}
+
+Let's build an intuitive understanding of this formula.
+
+\begin{itemize}
+    \item If the system is highly predictable (e.g., one state has $p_i=1$ and all others have $p_i=0$), the entropy is zero. There is no uncertainty, and we gain no new information by observing the state.
+    \item On the other hand, if every state is equally likely (i.e., $p_i = \frac{1}{n}$ for all $i$), the entropy is maximized. The more uniformly distributed the probabilities, the greater the uncertainty, and hence, the higher the entropy.
+\end{itemize}
+
+\begin{exbox}[Example: Fair Coin Toss]
+    Consider a fair coin toss, where the system can be in one of two states: \{Heads, Tails\}. The probability for each state is $p_1 = p_2 = 0.5$. The entropy for this system is:
+    
+    \[
+    H = - \left( 0.5 \log_2(0.5) + 0.5 \log_2(0.5) \right).
+    \]
+    
+    \[
+    \text{Since } \log_2(0.5) = -1, \quad \text{we have } H = - \left( 0.5 \times (-1) + 0.5 \times (-1) \right) = 1 \text{ bit.}
+    \]
+    
+    This shows that a fair coin toss conveys 1 bit of information.
+\end{exbox}
+
+\subsection{Generalizing to Systems with Multiple States}
+
+We generalized the example above to systems with $n$ possible states. Suppose there are $n$ distinct states, and the probability of the system being in the $i$-th state is $p_i$. The entropy is the weighted average of the individual information content of each state.
+
+We express this as:
+\[
+H = - \sum_{i=1}^{n} p_i \log(p_i).
+\]
+
+Where:
+\begin{itemize}
+    \item $p_i$ is the probability of the $i$-th state.
+    \item $\log(p_i)$ represents the information content when the system is found in state $i$.
+\end{itemize}
+
+This definition forms the cornerstone of understanding uncertainty and randomness within probabilistic systems. Whether dealing with simple binary systems or complex multi-state systems, entropy provides a universal measurement of uncertainty.
+
+\subsection{Shannon's Key Measure: Entropy as Average Information}
+
+Shannon introduced an extremely interesting measure known as \emph{entropy}, which essentially represents the \textbf{average information} associated with a system in a probabilistic sense.
+
+There are two ways to think about this concept:
+
+\begin{enumerate}
+    \item \textbf{The first perspective:} You already know the definition of information content for a single event. Recall that the information associated with observing a particular event $i$ with probability $p_i$ is $-\log(p_i)$. This is the amount of "surprise" or "information" you gain upon observing that event.
+    
+    \item \textbf{The second perspective:} Entropy extends this idea by taking the average of that information content over all possible states of the system. Instead of considering a single event, entropy encompasses the entire probability distribution of events or outcomes.
+\end{enumerate}
+
+Thus, entropy can be thought of as the expected or average information produced by the system.
+
+\begin{defbox}[Entropy]
+    The \emph{entropy} of a discrete random variable $X$ with possible states $x_1, x_2, \dots, x_n$, where each state $x_i$ occurs with probability $p_i$, is defined as:
+    \[
+    H(X) = - \sum_{i=1}^{n} p_i \log(p_i).
+    \]
+\end{defbox}
+
+In simpler terms:
+
+\begin{itemize}
+    \item It is a measure of the uncertainty inherent in the system.
+    \item If all outcomes are equally likely (maximum uncertainty), entropy is at its highest.
+    \item If one outcome dominates (almost certain outcome), entropy is very low.
+\end{itemize}
+
+The entropy function $H(X)$ works like a weighted average of the information content $-\log(p_i)$, where the weights are the probabilities $p_i$ of each outcome.
+
+\subsection{Properties of Entropy}
+
+Now that we have defined entropy, we can explore some of its important properties. These properties give deeper insights into how entropy behaves across different probabilistic systems and distributions.
+
+\begin{itemize}
+    \item \textbf{Non-negativity:} 
+    \[
+    H(X) \geq 0.
+    \]
+    Entropy can never be negative. The smallest entropy value, zero, arises when the outcome of the system is completely certain (i.e., one event has probability 1, and all others have probability 0).
+
+    \item \textbf{Maximal entropy for uniform distributions:} The entropy is maximized when all outcomes are equally probable. In that case, if there are $n$ equally likely states, each with probability $p_i = \frac{1}{n}$, the entropy is:
+    \[
+    H(X) = \log(n).
+    \]
+    This represents the highest uncertainty: you have no way of predicting which outcome will occur.
+
+    \item \textbf{Additivity for independent systems:} If you have two independent random variables $X$ and $Y$, the total entropy of the combined system is simply the sum of their respective entropies:
+    \[
+    H(X, Y) = H(X) + H(Y).
+    \]
+    This property reflects the fact that independent sources of uncertainty add up.
+
+    \item \textbf{Sub-additivity (for potentially dependent systems):}
+    For any two random variables $X$ and $Y$, whether independent or not, we have:
+    \[
+    H(X, Y) \leq H(X) + H(Y).
+    \]
+    This inequality reflects that when $X$ and $Y$ are dependent, observing one variable reduces uncertainty about the other.
+
+    \item \textbf{Concavity:} The entropy function is concave in terms of the probability distribution. This means that mixing probability distributions (e.g., taking a weighted average between two distributions) will never produce greater entropy than the weighted sum of their individual entropies. In simple terms, entropy is a concave functional of the probability distribution.
+\end{itemize}
+
+Each of these properties follows naturally from the definition of entropy – that it’s an average measure of uncertainty or surprise in a system. 
+
+\begin{rembox}[Intuition Behind Properties]
+    The non-negativity property is intuitively simple: you can't have negative uncertainty. The maximal entropy for uniform distributions tells us that unpredictability is at its highest when every outcome is equally likely. The additive property reflects how entropies of independent systems pile up, while sub-additivity shows that dependency between random variables reduces overall system uncertainty.
+\end{rembox}
+
+\subsection{Entropy and the Number of States}
+
+One important implication of entropy is its relationship with the number of possible states or outcomes of the system. Let’s connect these two ideas.
+
+\begin{thmbox}[Entropy and State Space]
+\begin{theorem}
+    If a random variable $X$ takes values in a finite set of $n$ equally likely outcomes, the entropy of $X$ is given by:
+    \[
+    H(X) = \log(n).
+    \]
+\end{theorem}
+\end{thmbox}
+
+This result highlights an important observation: the entropy grows with the number of equally likely outcomes. For example:
+
+\begin{itemize}
+    \item If there are 2 outcomes (such as a fair coin toss: heads or tails), the entropy is $\log(2) = 1$ bit.
+    \item If there are 8 outcomes (like rolling an eight-sided fair die), the entropy is $\log(8) = 3$ bits.
+\end{itemize}
+
+The reason we say "bits" is because we typically use the logarithm base 2. In information theory, a “bit” is the natural unit of information. One bit corresponds to the uncertainty involved in deciding between two equally likely outcomes.
+
+\subsection{Examples of Entropy Calculations}
+
+It’s often helpful to look at real examples to consolidate this understanding of entropy. Let’s go through a few.
+
+\begin{exbox}[Example: Fair Coin Toss]
+    Consider a fair coin toss with two possible outcomes: heads $(H)$ and tails $(T)$, each with probability $p(H) = p(T) = \frac{1}{2}$.
+
+    The entropy of this system is:
+    \[
+    H(X) = -\left( \frac{1}{2} \log \left(\frac{1}{2}\right) + \frac{1}{2} \log \left(\frac{1}{2}\right) \right).
+    \]
+
+    Since $\log \left(\frac{1}{2}\right) = -1$ (when using base 2), each term inside the sum simplifies to:
+    \[
+    -\left(\frac{1}{2} \times (-1)\right) = 0.5.
+    \]
+
+    Therefore:
+    \[
+    H(X) = 0.5 + 0.5 = 1 \text{ bit}.
+    \]
+\end{exbox}
+
+This aligns with our intuition: a fair coin toss is a situation of maximum uncertainty with two equally likely outcomes, so the entropy is 1 bit.
+
+\begin{exbox}[Example: Loaded Dice]
+    Now, consider a biased six-sided die where one outcome, say the number ‘1’, has a higher probability, say $p_1 = \frac{1}{2}$, and each of the other numbers has equal probability:
+    \[
+    p_2 = p_3 = p_4 = p_5 = p_6 = \frac{1}{10}.
+    \]
+    
+    The entropy can still be calculated using the same formula:
+    \[
+    H(X) = - \left( p_1 \log(p_1) + \sum_{i=2}^{6} p_i \log(p_i) \right).
+    \]
+    Substituting the probabilities:
+    \[
+    H(X) = - \left( \frac{1}{2} \log\left(\frac{1}{2}\right) + 5 \times \frac{1}{10} \log\left(\frac{1}{10}\right) \right).
+    \]
+
+    Using base 2:
+    \begin{itemize}
+        \item $\log_2\left(\frac{1}{2}\right) = -1$.
+        \item $\log_2\left(\frac{1}{10}\right) \approx -3.32$.
+    \end{itemize}
+
+    Therefore:
+    \[
+    H(X) = - \left( \frac{1}{2} \times (-1) + 5 \times \frac{1}{10} \times (-3.32) \right).
+    \]
+
+    Calculating each part:
+    \[
+    \frac{1}{2} \times (-1) = -0.5
+    \]
+    and
+    \[
+    5 \times \frac{1}{10} \times (-3.32) = -1.66.
+    \]
+
+    Thus:
+    \[
+    H(X) = -(-0.5 - 1.66) = 2.16 \text{ bits (approx.)}.
+    \]
+\end{exbox}
+
+Notice how the entropy is less than the maximum possible value (which would be $\log_2(6) \approx 2.585$ bits for a fair die). This reduction is due to the uneven probabilities: because one outcome is far more likely, the system is less uncertain.
+
+\subsection{Summary of the Key Concepts on Entropy}
+
+At this stage, we have developed a solid understanding of entropy and its behavior across different probability distributions:
+
+\begin{itemize}
+    \item Entropy measures the average uncertainty (or average surprise) in a probabilistic system.
+    \item If all outcomes are equally likely, the entropy of the system is maximized, reflecting total unpredictability.
+    \item If one outcome is very likely to occur, entropy is low since the system’s state is almost certain.
+    \item The units of entropy depend on the base of the logarithm. For base 2, we often speak in \emph{bits} of entropy.
+\end{itemize}
+
+These fundamental principles build the groundwork for many important applications, from communication systems (where entropy is tied to data compression) to statistical mechanics (where entropy relates to the disorder of physical states). We will soon explore how entropy directly links to concepts like \textbf{mutual information} and \textbf{conditional entropy}.
+
+\subsection{Quantifying Information from Observations}
+
+Imagine a probabilistic system where each state $i$ has a probability $p_i$. When you observe the system and find it in a particular state, say state 1, you have essentially received a certain \emph{amount of information} regarding the system’s state. The question we now ask is: \textbf{How much information have you received?}
+
+The information gained from observing a specific state is inversely related to its probability. Less probable events provide more information if they occur, whereas more probable events provide less. Formally, Shannon quantified this idea by defining the \emph{information content} (or self-information) of a particular event as:
+
+\begin{equation}
+I(p_i) = - \log_2(p_i).
+\end{equation}
+
+\begin{rembox}[Interpreting Self-information]
+If an event has a probability $p_i$, then the information gained by observing that it occurred is $I(p_i) = - \log_2(p_i)$.
+\begin{itemize}
+    \item Highly likely events (where $p_i \approx 1$) yield very little new information when observed.
+    \item Highly unlikely events (where $p_i$ is small) yield greater information when they happen, since they represent more surprising outcomes.
+\end{itemize}
+\end{rembox}
+
+This quantity is the \textbf{unit} of information conveyed by a single observation of the system’s state. It represents the degree to which the system's unpredictability is reduced by that observation.
+
+\subsection{Uncertainty Before Observation (Entropy)}
+
+Now, let us examine the opposite scenario. Suppose you have not yet observed the system. You only know the probabilities of each state $p_i$, but you have no exact knowledge of the specific outcome. We then ask: \textbf{What is the measure of the system’s uncertainty (or your lack of complete knowledge) before making any observation?}
+
+This \emph{uncertainty} is captured by the system’s \textbf{entropy}, which we previously defined as:
+
+\begin{equation}
+H = - \sum_i p_i \log_2(p_i).
+\end{equation}
+
+Entropy thus quantifies the \textbf{average uncertainty} in the system before any particular observation is made.
+
+\begin{defbox}[Entropy and Uncertainty]
+Entropy is the average measure of uncertainty inherent in a set of probabilistic outcomes. It captures the expected amount of information needed to describe the state of the system in the absence of direct observation.
+\end{defbox}
+
+We can read entropy as the weighted average of the self-information of each possible state. In other words, before we take any measurements, entropy tells us how uncertain or unpredictable the system’s outcome is.
+
+\subsection{Relationship Between Information and Entropy}
+
+To summarize:
+
+\begin{itemize}
+    \item When you observe the system and learn its exact state, you receive a \textbf{specific amount of information} $I(p_i)$, depending on how likely that state was.
+    \item Before observation, you only know the probability distribution over all states. Your \textbf{uncertainty} about the system’s state is measured by its entropy $H$.
+\end{itemize}
+
+\begin{rembox}[Key Insight]
+The relationship between information and entropy is direct. 
+\begin{itemize}
+    \item \textbf{Information} measures how much surprise (and thus knowledge) you gain from observing a specific outcome.
+    \item \textbf{Entropy} measures, on average, how much information you can expect to gain when you finally observe the system’s state.
+\end{itemize}
+\end{rembox}
+
+In essence, entropy measures our \emph{expectation of information gain}. When you know the probability distribution but not the exact outcome, entropy quantifies how much you \emph{don’t} know. When you finally observe the outcome, the specific information you gain is related directly to the entropy that was present beforehand.
+
+This connection is crucial because it underpins not only information theory but also many applications, from signal processing to statistical physics. We will now move to related concepts like mutual information to explore how knowledge of one system can reduce uncertainty in another.
+
+\subsection{Limits of Entropy}
+
+The concept of entropy is intuitive and rather straightforward. If we analyze this expression rigorously, we find that the \textbf{minimum entropy} a system can have is zero. More importantly, the entropy reaches this minimum value when one of the states has probability 1, and all other states have probability 0.
+
+That is, if:
+\[
+p_1 = 1, \quad p_2 = 0, \quad p_3 = 0, \quad \dots
+\]
+
+Then the entropy $H$ is zero. This means there is no uncertainty in the system—its state is fully determined. In other words, when you know the outcome with complete certainty, there is \textbf{no information left} to gain by making an observation.
+
+\begin{rembox}[Interpretation of Zero Entropy]
+If you know everything about the system (i.e., there is no variability), its entropy equals zero. The measure of uncertainty in the system is zero.
+\end{rembox}
+
+\subsection{Maximum Entropy and Uniform Distribution}
+
+On the other hand, at the other extreme, we have the \textbf{maximum entropy}. When is entropy maximized? It turns out that entropy reaches its maximum when each state is equally likely. That is, when the probability distribution is \textbf{uniform}.
+
+For a system with $N$ possible states, the uniform distribution is:
+\[
+p_1 = p_2 = \dots = p_N = \frac{1}{N}.
+\]
+
+In this scenario, the entropy achieves its maximum value:
+\[
+H_{\text{max}} = \log_2(N).
+\]
+
+This is because the uncertainty is maximized when every outcome is equally probable. When every state is equally likely, you know the least about which state the system might be in before observing.
+
+\begin{thmbox}[Maximum Entropy for a Uniform Distribution]
+\begin{theorem}
+For a system with $N$ equally probable states, the entropy is:
+\[
+H = \log_2(N).
+\]
+This represents the maximum possible entropy for a system with $N$ states.
+\end{theorem}
+\end{thmbox}
+
+\subsection{Summary of Entropy Extremes}
+
+Let us summarize the extremes of entropy in relation to probability distributions.
+
+\begin{customtable}[h]{>{\centering}m{0.35\linewidth} >{\centering}m{0.3\linewidth} >{\centering\arraybackslash}m{0.25\linewidth}}{Conditions for Minimum and Maximum Entropy}
+\toprule
+\textbf{Entropy Level} & \textbf{Probability Distribution} & \textbf{Uncertainty} \\
+\midrule
+Minimum Entropy & One state has $p = 1$, all others $p = 0$ & Zero uncertainty \\
+\midrule
+Maximum Entropy & All states equally likely ($\frac{1}{N}$) & Maximum uncertainty \\
+\bottomrule
+\end{customtable}
+
+\subsection{Information as Reduction in Uncertainty}
+
+Finally, we return to the fundamental relationship between \emph{information} and \emph{entropy}. Information is often viewed as the reduction of uncertainty when an observation is made.
+
+\begin{rembox}[Summary of Information and Entropy]
+\begin{itemize}
+    \item \textbf{Entropy} measures our average uncertainty before making an observation.
+    \item \textbf{Information} gained measures how much uncertainty is reduced after we learn the specific outcome.
+    \item The more uncertain we are (i.e., the higher the entropy), the more information we gain when the system's exact state is revealed.
+\end{itemize}
+\end{rembox}
+
+Entropy in probabilistic systems allows us to predict the average information content of outcomes. When we have high entropy, we are more surprised—and therefore gain more information—when we observe a single specific outcome.
+
+\subsection*{Conclusion}
+
+In summary, understanding entropy is key to understanding information theory. The measure of entropy quantifies uncertainty, while the measure of information quantifies the reduction of that uncertainty when an observation is made.
+
+This concludes the lecture on the relationship between information and entropy in probabilistic systems. The concepts discussed here form the foundation for deeper explorations into more advanced topics, including mutual information, channel capacities, and entropy rates in processes.
+
+\vspace{10pt} 
+\noindent \textbf{Glossary of Terms:}
+\begin{itemize}
+    \item \textbf{Entropy}: Measure of uncertainty in a system, calculated as the expected value of the information content of each outcome.
+    \item \textbf{Information}: The measure associated with reducing uncertainty when learning the outcome of a probabilistic event.
+    \item \textbf{Uniform Distribution}: A probability distribution where all outcomes are equally likely, leading to maximum entropy.
+    \item \textbf{Minimum Entropy}: The condition when one outcome has probability 1 and the rest have probability 0, leading to zero uncertainty.
+\end{itemize}
+
+\section{References}
+\begin{itemize}
+    \item Shannon, C. E. ``A Mathematical Theory of Communication.'' \textit{The Bell System Technical Journal}, vol. 27, pp. 379–423, 623–656, 1948.
+    \item Cover, T. M., \& Thomas, J. A. \textit{Elements of Information Theory}. 2nd Edition. John Wiley \& Sons, 2006. Chapter 2: Entropy, Relative Entropy, and Mutual Information.
+    \item MacKay, D. J. C. \textit{Information Theory, Inference, and Learning Algorithms}. Cambridge University Press, 2003. Chapter 4: Entropy and Information.
+    \item Yeung, R. W. \textit{A First Course in Information Theory}. Springer, 2002. Chapter 2: Entropy and Mutual Information.
+    \item Ash, R. B. \textit{Information Theory}. Dover Publications, 1990. Chapter 1: The Concept of Information.
+    \item Csiszár, I., \& Körner, J. \textit{Information Theory: Coding Theorems for Discrete Memoryless Systems}. Cambridge University Press, 2011. Chapter 1: Basic Notions.
+    \item Gray, R. M. \textit{Entropy and Information Theory}. 2nd Edition. Springer, 2011. Chapter 2: Entropy.
+    \item Haken, H. \textit{Synergetics: Introduction and Advanced Topics}. Springer, 2004. Section: Information and Entropy.
+    \item MIT OpenCourseWare. ``Lecture 2: Entropy and Information Theory.'' \url{https://ocw.mit.edu/courses/6-441-information-theory-spring-2016/resources/lecture-2-entropy-and-information-theory/}
+    \item Stanford Encyclopedia of Philosophy. ``Information Theory.'' \url{https://plato.stanford.edu/entries/information-theory/}
+\end{itemize}
+
+\end{document}

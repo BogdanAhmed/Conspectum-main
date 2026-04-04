@@ -1,0 +1,8 @@
+aiogram
+python-dotenv
+openai
+httpx
+pdflatex
+pydub
+fastapi
+uvicorn

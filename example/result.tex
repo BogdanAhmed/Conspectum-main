@@ -1,0 +1,530 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[english]{babel}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{tcolorbox}
+\usepackage{enumitem}
+\usepackage{array, booktabs}
+\usepackage{multicol}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{footmisc}
+\usepackage{xcolor}
+
+\geometry{top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm, headheight=15pt}
+\hypersetup{colorlinks=true, linkcolor=blue, filecolor=magenta, urlcolor=cyan, pdfpagemode=FullScreen}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\footnotesize \textit{Concepts of Information and Entropy in Probability Theory and Shannon's Information Measure}}
+\rhead{\thepage}
+
+% Custom colors for tcolorbox
+\tcbuselibrary{theorems, skins, breakable}
+\definecolor{thmcolor}{RGB}{200,230,255}
+\definecolor{defcolor}{RGB}{230,250,220}
+\definecolor{excolor}{RGB}{255,240,210}
+
+% Theorem environment
+\newtheorem{theorem}{Theorem}[section]
+\newenvironment{thmbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=thmcolor, colframe=blue!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Definition environment
+\newtheorem{definition}{Definition}[section]
+\newenvironment{defbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=defcolor, colframe=green!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Lemma environment
+\newtheorem{lemma}{Lemma}[section]
+\newenvironment{lembox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=yellow!10, colframe=orange!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Proposition environment
+\newtheorem{proposition}{Proposition}[section]
+\newenvironment{propbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=purple!5, colframe=purple!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Corollary environment
+\newtheorem{corollary}{Corollary}[section]
+\newenvironment{corbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=cyan!5, colframe=cyan!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Example environment
+\newtheorem{example}{Example}[section]
+\newenvironment{exbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=excolor, colframe=brown!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Remark environment
+\newtheorem{remark}{Remark}[section]
+\newenvironment{rembox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=gray!5, colframe=gray!50, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Customize enumerate and itemize
+\setlist[enumerate]{leftmargin=*, itemsep=2pt, topsep=4pt}
+\setlist[itemize]{leftmargin=*, itemsep=2pt, topsep=4pt}
+
+% Custom table environment with caption, placement, and column spec
+\newenvironment{customtable}[3][htbp]{%
+  % #1 = optional: placement (default: htbp)
+  % #2 = mandatory: column specification (e.g., {ccc}, {l|c|r})
+  % #3 = mandatory: table caption (goes above the table)
+  \begin{table}[#1]
+  \centering
+  \renewcommand{\arraystretch}{1.2}
+  \caption{#3}
+  \begin{tabular}{#2}
+}{%
+  \end{tabular}
+  \end{table}
+}
+
+\title{Concepts of Information and Entropy in Probability Theory and Shannon's Information Measure}
+
+% ============================================================
+% DOCUMENT STRUCTURE GUIDELINES
+% ============================================================
+%
+% === 1. DOCUMENT STRUCTURE & FLOW ===
+% - Use \section{}, \subsection{}, \subsubsection{} to mirror lecture flow.
+% - Limit depth: section → subsection → subsubsection (avoid deeper).
+% - Start each section with a 1–2 sentence summary of what follows.
+% - Example:
+%   \section{Introduction}
+%   This section introduces the core concepts of vector spaces...
+
+% === 2. CONTENT ACCURACY ===
+% - Faithfully represent the lecture: definitions, theorems, examples, logic.
+% - Do NOT add external content unless noted (e.g., in footnotes).
+% - Paraphrase for clarity; use direct quotes sparingly.
+
+% === 3. MATHEMATICAL TYPESETTING ===
+% - Always use math mode: $x^2$, \[ \int f(x) dx \], or \begin{equation}.
+% - Number equations only if referenced later (use \label{} and \cref{}).
+% - Use semantic commands: \mathbb{R}, \mathcal{L}, \vec{v}, \nabla, etc.
+% - Example:
+%   \begin{equation}\label{eq:euler}
+%   e^{i\pi} + 1 = 0
+%   \end{equation}
+%   As shown in \cref{eq:euler}, ...
+
+% === 4. CUSTOM ENVIRONMENTS (USE AS INTENDED) ===
+% - \begin{defbox}[Title]     → For definitions (green-tinted).
+% - \begin{thmbox}[Title]     → For theorems/lemmas/propositions (blue-tinted).
+% - \begin{exbox}[Title]      → For examples (beige-tinted).
+% - \begin{rembox}[Title]     → For remarks/notes (gray-tinted).
+%
+% Rules:
+% - Always include a title: \begin{thmbox}[Pythagorean Theorem]}
+% - Keep content concise; avoid long paragraphs inside boxes.
+% - Do NOT nest boxes.
+% - For formal numbering, wrap amsthm environments inside:
+%   \begin{thmbox}[Mean Value Theorem]
+%   \begin{theorem}
+%   Let $f$ be continuous on $[a,b]$...
+%   \end{theorem}
+%   \end{thmbox}
+
+% === 5. LISTS AND ENUMERATIONS ===
+% - Use itemize for unordered key points:
+%   \begin{itemize}
+%     \item Point A
+%     \item Point B
+%   \end{itemize}
+% - Use enumerate for step-by-step procedures:
+%   \begin{enumerate}
+%     \item Step 1: Define domain.
+%     \item Step 2: Compute derivative.
+%   \end{enumerate}
+% - Avoid nesting >2 levels.
+
+% === 6. TABLES (USE customtable) ===
+% - Syntax:
+%   \begin{customtable}[placement]{column-spec}{Caption}
+%   \toprule
+%   Col1 & Col2 & Col3 \\
+%   \midrule
+%   Data & Data & Data \\
+%   \bottomrule
+%   \end{customtable}
+% - Example:
+%   \begin{customtable}[h]{lcc}{Experimental Results}
+%   \toprule
+%   Trial & Input & Output \\
+%   \midrule
+%   1 & 10 & 15 \\
+%   2 & 20 & 30 \\
+%   \bottomrule
+%   \end{customtable}
+% - Use booktabs rules (\toprule, \midrule, \bottomrule).
+% - No vertical lines; align numbers by decimal if needed.
+
+
+\begin{document}
+
+\maketitle
+\begin{abstract}The lecture discusses foundational concepts in information theory, focusing on Shannon's groundbreaking idea of measuring information and entropy. The key learning objective is to understand how unexpected probabilistic events provide more information than routine ones. Specifically, the lecture demonstrates that the amount of information in an event is related to the event’s probability: the less likely an event, the more information it carries. Mathematically, information is represented as the logarithm of the inverse of the probability. The lecture also introduces the concept of entropy as the average information content or uncertainty in a system, defined as the weighted sum of the information of all possible states. Entropy reaches its minimum value (zero) when the system’s state is known with certainty and its maximum when all states are equally likely, thereby reflecting maximum uncertainty about the system.\end{abstract}
+
+\section{Introduction to Information Content in Probabilistic Events}
+This section introduces a core concept in information theory — comparing the information content of two probabilistic events. Using a simple example, the lecture illustrates how the relative likelihood of events affects the information they provide.
+
+\begin{defbox}[Information Content and Probability]
+The information content of an event is inversely related to the probability of that event. Formally, if an event $A$ occurs with probability $P(A)$, then the information content $I(A)$ is given by:
+\[
+I(A) = \log \left( \frac{1}{P(A)} \right) = -\log\big(P(A)\big).
+\]
+\end{defbox}
+
+\subsection{Illustrative Example}
+Consider two probabilistic events involving a professor's behavior:
+\begin{itemize}
+    \item \textbf{Event 1:} Professor N enters the room.
+    \item \textbf{Event 2:} Professor N expels a student from the room.
+\end{itemize}
+
+The goal is to determine which of these events provides more information.
+
+\begin{rembox}[Comparing Probabilistic Events]
+In general, rare events provide more informational content than common ones. Thus, the event with a lower probability will convey more information.
+\end{rembox}
+
+In this example, the first event (professor entering the room) is likely to be common, while the second event (professor expelling a student) is relatively rare. Therefore, the rarer event — the professor expelling a student — carries more information.
+
+\begin{exbox}[Likelihood vs. Information]
+If the probability of Professor N entering the room is $P_1$ and the probability of expelling a student is $P_2$ with $P_1 > P_2$, then:
+\[
+I(\text{expelling a student}) > I(\text{entering the room}),
+\]
+because $P_2 < P_1$.
+\end{exbox}
+
+This simple example sets up the fundamental relationship between the probability of an event and the amount of information it provides.
+\section{Shannon's Logical Framework for Information}
+
+In this section, we continue building on Shannon’s logical steps that formalize the relationship between probability and information content. The key insight is that less probable events convey more information.
+
+\subsection{Uncommon Events in Practical Scenarios}
+To further illustrate the concept, let's examine situations where mass media might be interested in reporting certain events:
+\begin{itemize}
+    \item \textbf{Event 1:} A professor lectures in the classroom.
+    \item \textbf{Event 2:} A professor quizzes students unexpectedly outside of class.
+\end{itemize}
+
+While the first event is expected and routine, the second is uncommon and surprising. From the media’s perspective, the second event is more "newsworthy." The reason is that less probable events attract more attention and convey more information.
+
+\begin{rembox}[Why Uncommon Events Matter]
+The second event is less likely (lower probability) and therefore provides more informational value. This directly connects to Shannon's foundational insight that low-probability events yield higher information content.
+\end{rembox}
+
+Thus, the idea is that an unexpected or uncommon scenario generates more information than a routine or expected one.
+
+\subsection{First Logical Step: Information and Probability}
+The first logical principle laid out by Shannon is simple: the amount of information an event carries is a function of the inverse probability of that event. If $P(E)$ is the probability of event $E$, then the information content $I(E)$ can be expressed as:
+\[
+I(E) = f\left(\frac{1}{P(E)}\right).
+\]
+
+\begin{defbox}[Information as a Function of Probability]
+Formally, the information content of an event $E$ is some function $f$ of the inverse of its probability:
+\[
+I(E) = f\left(\frac{1}{P(E)}\right).
+\]
+This function typically takes the form of a logarithm, which ensures consistency with key properties of information (e.g., additivity across independent events).
+\end{defbox}
+
+\subsection{Second Logical Step: Additivity of Independent Events}
+The second logical step involves understanding how information behaves when we consider multiple probabilistic events that are statistically independent.
+
+\begin{itemize}
+    \item Suppose we have two statistically independent events $E_1$ and $E_2$.
+    \item Their joint probability is given by $P(E_1 \cap E_2) = P(E_1) \times P(E_2)$.
+\end{itemize}
+
+Now, the combined information content of these two independent events should be the sum of the individual pieces of information.
+
+\begin{thmbox}[Additivity of Information]
+For two independent events $E_1$ and $E_2$, the total information $I(E_1 \cap E_2)$ is additive:
+\[
+I(E_1 \cap E_2) = I(E_1) + I(E_2).
+\]
+\end{thmbox}
+
+This property of additivity is critical in choosing an appropriate function $f$. In fact, it drives the use of the logarithmic function.
+
+\begin{rembox}[Why Additivity Matters]
+The additivity property ensures that when two independent events occur together, the total information is just the sum of the information from each event. This aligns with intuitive expectations about independent events.
+\end{rembox}
+
+\subsection{The Role of Logarithms in Information Measurement}
+The choice of a logarithmic function for $f$ is not arbitrary. It satisfies the key properties discussed above:
+\begin{enumerate}
+    \item \textbf{Monotonicity:} Less probable events should give more information.
+    \item \textbf{Additivity:} The total information for independent events should be the sum of the information from each event.
+\end{enumerate}
+
+Therefore, we define the information content of an event $E$ with probability $P(E)$ as:
+\[
+I(E) = -\log P(E).
+\]
+
+\begin{defbox}[Definition of Information]
+The information content $I(E)$ of an event $E$ with probability $P(E)$ is defined as:
+\[
+I(E) = -\log P(E),
+\]
+where the logarithm base is often 2 (for bits), $e$ (natural logarithm), or 10, depending on the application.
+\end{defbox}
+
+This definition elegantly encapsulates the key requirements: less probable events yield higher $I(E)$, and independent events have additive information.
+
+\begin{rembox}[Implication of Negative Logarithm]
+Since $-\log P(E)$ increases as $P(E)$ decreases, this definition perfectly aligns with our intuition: the rarer the event, the more surprising it is, and thus the more information it provides.
+\end{rembox}
+\subsection{Additivity of Information for Independent Events}
+A key logical conclusion is that the information content for two independent probabilistic events is the sum of their individual information contents. In other words, if events $E_1$ and $E_2$ are independent, then the joint information is:
+\[
+I(E_1 \cap E_2) = I(E_1) + I(E_2).
+\]
+
+\begin{thmbox}[Additivity of Information]
+\begin{theorem}
+If two events $E_1$ and $E_2$ are independent, the total information content of their joint occurrence is the sum of their individual information contents:
+\[
+I(E_1 \cap E_2) = I(E_1) + I(E_2).
+\]
+\end{theorem}
+\end{thmbox}
+
+This crucial property leads us to the conclusion that the only mathematical function which satisfies the additivity condition for probabilities is the logarithmic function. This is not only intuitive but can also be formally proven.
+
+\begin{thmbox}[Uniqueness of the Logarithmic Form]
+\begin{theorem}
+The only function $f$ that satisfies both the monotonicity and additivity conditions for information content is the logarithm. Specifically, if:
+\begin{equation}
+f(P(E_1 \cap E_2)) = f(P(E_1)) + f(P(E_2))
+\end{equation}
+for independent events $E_1$ and $E_2$, then $f(x)$ must be proportional to $\log(x)$.
+\end{theorem}
+\end{thmbox}
+
+Thus, the definition of information content as the logarithm of the inverse probability is not only intuitive but also mathematically unique under these constraints.
+
+\subsection{Choice of Logarithmic Base}
+Traditionally, natural logarithms (base $e$) have been used for convenience in mathematical derivations. However, if we instead use a base-2 logarithm, the units of information are measured in \textit{bits}—corresponding to the familiar binary representation in computing.
+
+\begin{rembox}[Logarithm Bases and Information Units]
+\begin{itemize}
+    \item Natural logarithms yield information in units called \emph{nats}.
+    \item Base-2 logarithms measure information in \emph{bits}.
+\end{itemize}
+While the choice of base depends on context, the core properties of information remain the same.
+\end{rembox}
+
+\subsection{Definition of Entropy}
+Now we expand this notion of information to an entire probability distribution over a system with multiple states. Suppose a system can exist in $n$ distinct states, and the probability of finding the system in state $i$ is $P_i$.
+
+We now define the \emph{entropy} $H$ of the system as the \emph{expected value} of the information content across all possible states.
+
+\begin{defbox}[Entropy of a System]
+\begin{definition}
+Let a system have $n$ possible states, each with probability $P_i$. The entropy $H$ of the system is defined as:
+\[
+H = - \sum_{i=1}^n P_i \log P_i.
+\]
+\end{definition}
+\end{defbox}
+
+Entropy represents the average uncertainty or "information content" of the system. It reaches its maximum when all states are equally likely, and its minimum (zero) when the system is entirely predictable (i.e., when one state has probability 1 and all others zero).
+
+\begin{rembox}[Intuition Behind Entropy]
+Entropy quantifies the uncertainty of a probability distribution:
+\begin{itemize}
+    \item If all states are equally likely, uncertainty is maximized.
+    \item If one state dominates the probability (near certainty), uncertainty is minimal.
+\end{itemize}
+\end{rembox}
+Shannon introduced an extremely interesting measure, which we now recognize as entropy. Essentially, entropy is the average information about the system — or more precisely, the average uncertainty remaining about the system's actual state.
+
+Let us break down this concept into two key ideas.
+
+\begin{enumerate}
+    \item \textbf{Information Content of Individual Events:} We already discussed this part. When an unlikely event occurs, we gain more information (since it's surprising), while a likely event tells us less.
+    
+    \item \textbf{Overall Average Information (Entropy):} Instead of looking at single events, we can consider the average information over all possible states. That’s what entropy is — the weighted sum of the information for each possible state, where the weights are the probabilities of those states occurring.
+\end{enumerate}
+
+\begin{rembox}[Recap on Individual Event Information]
+We previously saw that the information content of a single event $i$ with probability $P_i$ is \(-\log P_i\). Rare events produce more information than common events.
+\end{rembox}
+
+Now, Shannon wanted a measure that summarizes the overall "spread" of a probability distribution over all possible states. That measure is given by the entropy formula we introduced earlier:
+\[
+H = - \sum_{i=1}^n P_i \log P_i.
+\]
+
+It turns out that this concept of entropy is foundational not just to communication theory, but also to various fields including thermodynamics and machine learning. It helps us understand the average uncertainty of the system.
+\subsection{Mutual Information}
+
+The mutual information between two random variables measures how much knowing one of them reduces uncertainty about the other. It is a critical tool in quantifying the shared information between variables and plays a fundamental role in both coding theory and machine learning.
+
+\begin{defbox}[Definition of Mutual Information]
+The mutual information \( I(X;Y) \) of two random variables \( X \) and \( Y \) is defined as:
+\[
+I(X;Y) = H(X) + H(Y) - H(X,Y),
+\]
+where \( H(X) \) and \( H(Y) \) are the individual entropies of \( X \) and \( Y \), and \( H(X,Y) \) is the joint entropy.
+\end{defbox}
+
+Mutual information can also be expressed as:
+\[
+I(X;Y) = \sum_{x \in X} \sum_{y \in Y} p(x,y) \log \frac{p(x,y)}{p(x)p(y)}.
+\]
+
+\begin{exbox}[Intuition]
+If two variables are independent, knowing one gives no information about the other, so \( I(X;Y) = 0 \). If they are perfectly dependent, knowledge of one completely determines the other, maximizing \( I(X;Y) \).
+\end{exbox}
+
+\subsubsection{Relationship to Conditional Entropy}
+
+Conditional entropy is a measure of the remaining uncertainty of a random variable after knowing another variable. Mutual information helps connect joint entropy and conditional entropy in insightful ways.
+
+\begin{defbox}[Conditional Entropy]
+The conditional entropy of variable \( Y \) given \( X \), denoted \( H(Y|X) \), is defined as:
+\[
+H(Y|X) = H(X,Y) - H(X).
+\]
+It quantifies the amount of uncertainty remaining about \( Y \) when \( X \) is known.
+\end{defbox}
+
+Mutual information also has an equivalent definition in terms of conditional entropy:
+\[
+I(X;Y) = H(Y) - H(Y|X) = H(X) - H(X|Y).
+\]
+
+\begin{rembox}[Interpretation]
+This means that mutual information tells us how much of the entropy (or uncertainty) of one variable is reduced by knowing the other.
+\end{rembox}
+
+\begin{exbox}[Example: Coin Toss]
+Suppose \( X \) and \( Y \) represent the outcomes of two fair coin flips. If the coins are flipped independently, knowing \( X \) tells us nothing about \( Y \). Thus, \[
+I(X;Y) = 0.
+\]
+However, if we knew that every time \( X \) landed on heads \( Y \) also landed on heads (and tails correspondingly), then \( I(X;Y) \) would be maximized because knowing one immediately determines the other.
+\end{exbox}
+
+\subsection{Kullback–Leibler (KL) Divergence}
+
+The Kullback–Leibler divergence (or KL divergence) is a measure of how one probability distribution differs from another reference probability distribution. Unlike mutual information, KL divergence is not symmetric, and it’s often used as a measure of inefficiency when using an approximation for a true distribution.
+
+\begin{defbox}[KL Divergence]
+The KL divergence between two probability distributions \( P \) and \( Q \) over the same random variable is defined as:
+\[
+D_{\mathrm{KL}}(P || Q) = \sum_x P(x) \log \left( \frac{P(x)}{Q(x)} \right).
+\]
+\end{defbox}
+
+\begin{rembox}[Interpretation]
+\begin{itemize}
+    \item If \( P = Q \), the KL divergence is zero.
+    \item KL divergence is always non-negative.
+    \item Intuitively, it measures the "extra" bits of information required when the distribution \( Q \) is used to approximate \( P \).
+\end{itemize}
+\end{rembox}
+\subsection{Information Gained from Observing a System State}
+
+When we observe a system and identify it in a particular state, we gain a certain amount of information about that system. Let's say the system can exist in different states, each with a probability \( p_i \).
+
+\begin{itemize}
+    \item If you observe the system and find it in a specific state (say the first state), you gain information regarding the system.
+    \item The amount of information obtained depends on how likely or unlikely that specific state is.
+    \item Less probable states convey more information when observed, as they are unexpected. Conversely, highly probable states convey less information.
+\end{itemize}
+
+The measure of this quantity of information gained after observing a specific state is the negative logarithm of the probability of that state, i.e., 
+\[
+I = -\log p_i.
+\]
+
+\begin{rembox}[Understanding Information]
+The information content of an event tells us how "surprising" or "unexpected" that event is. The less likely an event, the more information it provides once it occurs.
+\end{rembox}
+
+\subsection{Uncertainty Before Observation}
+
+On the other hand, before you measure or observe the system, you only know the probabilistic distribution of possible states but do not yet know the specific state the system is in. In such a case, the system remains "mysterious" to you. You have partial knowledge, i.e., you know the probabilities, but not the actual outcome.
+
+This situation of partial knowledge leads to uncertainty. The question now becomes: how do we measure this uncertainty?
+
+\begin{itemize}
+    \item If you knew the specific state beforehand, your uncertainty would be zero.
+    \item However, because you only know the probabilities and have no observation yet, you have some degree of uncertainty.
+\end{itemize}
+
+\begin{rembox}[Uncertainty as a Measure]
+We need a measure of how incomplete your knowledge is, i.e., how uncertain you are about the system’s specific state prior to observation.
+\end{rembox}
+
+\subsection{Entropy as a Measure of Uncertainty}
+
+This measure of uncertainty that arises from a set of known probabilities (but unknown actual outcomes) is known as \textbf{entropy}. The concept of entropy quantifies the average uncertainty in a probability distribution over the possible states of a system.
+
+In the next section, we will mathematically define and discuss how entropy measures the degree of uncertainty present when only probabilistic information is known, and no specific measurement has been taken yet.
+\begin{itemize}
+    \item \textbf{Minimal Entropy:} Entropy achieves its minimal value, which is zero, when one of the states has a probability of $1$, and all other states have a probability of $0$.
+    \item In other words:
+        \begin{align*}
+            p_1 = 1 \quad \text{and} \quad p_i = 0 \quad \text{for} \quad i \neq 1.
+        \end{align*}
+\end{itemize}
+
+This scenario signifies complete certainty about the system's state. With absolute certainty, no uncertainty remains, and hence, entropy reduces to zero. This outcome is straightforward because knowing exactly which event will occur implies no new information is gained at the moment it happens.
+
+\begin{rembox}[Interpretation of Zero Entropy]
+When entropy is zero, the system's future state is completely predictable. This indicates that the "measure of uncertainty" is entirely absent. You already know the outcome with complete confidence, so no new information is gained when the event occurs.
+\end{rembox}
+
+\subsection{Maximum Entropy and Uniform Distributions}
+
+Conversely, entropy reaches its maximum value when all states are equally likely. Suppose a system can exist in $n$ possible states, and each state has equal probability $\frac{1}{n}$. The entropy for such a uniform distribution is:
+\[
+H = \log n.
+\]
+
+\begin{rembox}[High Entropy = Maximal Uncertainty]
+When all states are equally likely, there's maximum uncertainty about which state will occur. This general condition leads to maximal entropy, as every event carries an equal "surprise factor" or information content.
+\end{rembox}
+
+\subsection{Conclusion: Role of Entropy in Information Theory}
+
+Entropy serves as a foundational concept in information theory. Its value reflects how much uncertainty (or lack of knowledge) exists about the system’s state before observation.
+
+\begin{rembox}[Final Insight]
+Entropy enables us to quantify how much "information" we expect to gain from learning the outcome of a probabilistic system. A lower entropy indicates that the outcome is more predictable (less information is gained), while higher entropy suggests greater unpredictability and thus higher information potential.
+\end{rembox}
+
+\subsubsection*{Summary of Key Points}
+\begin{itemize}
+    \item Entropy measures the average uncertainty of a system's state.
+    \item Minimal entropy ($H = 0$) occurs when one state has probability $1$ (complete predictability).
+    \item Maximal entropy occurs when all states are equally likely, i.e., a uniform distribution.
+    \item Entropy quantifies the expected information gain from observing a system.
+\end{itemize}
+
+\subsubsection*{Further Reading}
+Shannon's original work on information theory provides a rigorous foundation for understanding entropy, uncertainty, and information generation. Relevant sections in standard texts on information theory can deepen your comprehension of these concepts.
+
+\end{document}

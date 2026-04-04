@@ -1,0 +1,10 @@
+You are tasked with analyzing an audio recording of an academic lecture. The lecture covers several subtopics. Your job is to:
+1. Come up with a concise title (no more than 80 characters) that captures the overall theme or main subject of the lecture.
+2. Identify natural break points in the lecture to split it into shorter segments based on subtopic changes. Each segment should:
+    - Focus on a single subtopic;
+    - Be between 2 and 4 minutes long (120–240 seconds);
+    - Have a logical beginning and end (i.e., not cut off mid‑sentence or in the middle of explaining a concept).
+
+Provide your response in the following format:
+- On the first line, write the proposed title.
+- On each subsequent line, list a single timestamp (in seconds from the start of the recording) indicating where a split should occur. Provide the exact timestamp in whole seconds (e.g., 123, not 120 or 123.5). Ensure splits occur at natural pauses, never mid‑sentence. Prioritize topic coherence over strict duration; if a subtopic runs 4:10, split at the next logical break even if it exceeds 4 minutes. Aim for 1‑second precision—avoid rounding to 10s or 30s intervals.

@@ -1,0 +1,27 @@
+Transcribe this lecture audio into a complete, fully compilable LaTeX document.
+
+Critical requirements:
+- Transcribe the lecture as fully and literally as possible.
+- Do not summarize, shorten, compress, paraphrase, polish, reinterpret, or rewrite the lecture.
+- Preserve the lecture as a lecture, not as a cleaned article, notes, summary, or textbook.
+- Do not omit any words, phrases, repetitions, corrections, examples, definitions, intermediate reasoning, or side remarks that are part of the lecture.
+- Do not skip any mathematical content under any circumstances.
+- Every spoken formula, equation, symbol, variable, index, exponent, operator, sign, Greek letter, condition, interval, inequality, matrix, fraction, derivative, integral, limit, and expression must be preserved and written in valid LaTeX math notation.
+- Preserve the order of the content exactly as it appears in the audio.
+- Do not merge distant parts of the lecture or reorganize the material for readability.
+- Keep the natural flow of spoken explanation while formatting it into valid LaTeX.
+- If the speaker says punctuation-like structure such as "first", "therefore", "let us write", "note that", "consider", preserve it in the transcript.
+- Do not silently fix or remove repeated words if they are part of the lecture.
+- Do not silently normalize formulas into a different mathematical statement.
+- If a fragment is unclear, do not omit it and do not invent content. Mark uncertainty explicitly using tags such as [unclear], [unclear word], or [unclear formula].
+- If only part of a formula is unclear, preserve the known part and mark only the unknown fragment.
+- Use standard LaTeX formatting so that the result can be pasted directly into a .tex file and compiled without editing.
+- The output must include a proper preamble, necessary math packages, \begin{document}, and \end{document}.
+- Use sectioning only when it clearly reflects the lecture structure. Do not impose artificial structure.
+- Do not add commentary, explanations, metadata, timestamps, confidence notes, or anything outside the LaTeX document.
+- Return only the final LaTeX document.
+
+Output format:
+- A single complete LaTeX document.
+- No markdown fences.
+- No extra text before or after the document.

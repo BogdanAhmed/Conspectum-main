@@ -1,0 +1,275 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[english]{babel}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{tcolorbox}
+\usepackage{enumitem}
+\usepackage{array, booktabs}
+\usepackage{multicol}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{footmisc}
+\usepackage{xcolor}
+
+\geometry{top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm, headheight=15pt}
+\hypersetup{colorlinks=true, linkcolor=blue, filecolor=magenta, urlcolor=cyan, pdfpagemode=FullScreen}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\footnotesize \textit{The Relationship Between Euclidean Geometry and Physical Space: A Mathematical and Physical Inquiry}}
+\rhead{\thepage}
+
+% Custom colors for tcolorbox
+\tcbuselibrary{theorems, skins, breakable}
+\definecolor{thmcolor}{RGB}{200,230,255}
+\definecolor{defcolor}{RGB}{230,250,220}
+\definecolor{excolor}{RGB}{255,240,210}
+
+% Theorem environment
+\newtheorem{theorem}{Theorem}[section]
+\newenvironment{thmbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=thmcolor, colframe=blue!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Definition environment
+\newtheorem{definition}{Definition}[section]
+\newenvironment{defbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=defcolor, colframe=green!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Lemma environment
+\newtheorem{lemma}{Lemma}[section]
+\newenvironment{lembox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=yellow!10, colframe=orange!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Proposition environment
+\newtheorem{proposition}{Proposition}[section]
+\newenvironment{propbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=purple!5, colframe=purple!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Corollary environment
+\newtheorem{corollary}{Corollary}[section]
+\newenvironment{corbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=cyan!5, colframe=cyan!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Example environment
+\newtheorem{example}{Example}[section]
+\newenvironment{exbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=excolor, colframe=brown!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Remark environment
+\newtheorem{remark}{Remark}[section]
+\newenvironment{rembox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=gray!5, colframe=gray!50, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Customize enumerate and itemize
+\setlist[enumerate]{leftmargin=*, itemsep=2pt, topsep=4pt}
+\setlist[itemize]{leftmargin=*, itemsep=2pt, topsep=4pt}
+
+% Custom table environment with caption, placement, and column spec
+\newenvironment{customtable}[3][htbp]{%
+  % #1 = optional: placement (default: htbp)
+  % #2 = mandatory: column specification (e.g., {ccc}, {l|c|r})
+  % #3 = mandatory: table caption (goes above the table)
+  \begin{table}[#1]
+  \centering
+  \renewcommand{\arraystretch}{1.2}
+  \caption{#3}
+  \begin{tabular}{#2}
+}{%
+  \end{tabular}
+  \end{table}
+}
+
+\title{The Relationship Between Euclidean Geometry and Physical Space: A Mathematical and Physical Inquiry}
+
+% ============================================================
+% DOCUMENT STRUCTURE GUIDELINES
+% ============================================================
+%
+% === 1. DOCUMENT STRUCTURE & FLOW ===
+% - Use \section{}, \subsection{}, \subsubsection{} to mirror lecture flow.
+% - Limit depth: section → subsection → subsubsection (avoid deeper).
+% - Start each section with a 1–2 sentence summary of what follows.
+% - Example:
+%   \section{Introduction}
+%   This section introduces the core concepts of vector spaces...
+
+% === 2. CONTENT ACCURACY ===
+% - Faithfully represent the lecture: definitions, theorems, examples, logic.
+% - Do NOT add external content unless noted (e.g., in footnotes).
+% - Paraphrase for clarity; use direct quotes sparingly.
+
+% === 3. MATHEMATICAL TYPESETTING ===
+% - Always use math mode: $x^2$, \[ \int f(x) dx \], or \begin{equation}.
+% - Number equations only if referenced later (use \label{} and \cref{}).
+% - Use semantic commands: \mathbb{R}, \mathcal{L}, \vec{v}, \nabla, etc.
+% - Example:
+%   \begin{equation}\label{eq:euler}
+%   e^{i\pi} + 1 = 0
+%   \end{equation}
+%   As shown in \cref{eq:euler}, ...
+
+% === 4. CUSTOM ENVIRONMENTS (USE AS INTENDED) ===
+% - \begin{defbox}[Title]     → For definitions (green-tinted).
+% - \begin{thmbox}[Title]     → For theorems/lemmas/propositions (blue-tinted).
+% - \begin{exbox}[Title]      → For examples (beige-tinted).
+% - \begin{rembox}[Title]     → For remarks/notes (gray-tinted).
+%
+% Rules:
+% - Always include a title: \begin{thmbox}[Pythagorean Theorem]}
+% - Keep content concise; avoid long paragraphs inside boxes.
+% - Do NOT nest boxes.
+% - For formal numbering, wrap amsthm environments inside:
+%   \begin{thmbox}[Mean Value Theorem]
+%   \begin{theorem}
+%   Let $f$ be continuous on $[a,b]$...
+%   \end{theorem}
+%   \end{thmbox}
+
+% === 5. LISTS AND ENUMERATIONS ===
+% - Use itemize for unordered key points:
+%   \begin{itemize}
+%     \item Point A
+%     \item Point B
+%   \end{itemize}
+% - Use enumerate for step-by-step procedures:
+%   \begin{enumerate}
+%     \item Step 1: Define domain.
+%     \item Step 2: Compute derivative.
+%   \end{enumerate}
+% - Avoid nesting >2 levels.
+
+% === 6. TABLES (USE customtable) ===
+% - Syntax:
+%   \begin{customtable}[placement]{column-spec}{Caption}
+%   \toprule
+%   Col1 & Col2 & Col3 \\
+%   \midrule
+%   Data & Data & Data \\
+%   \bottomrule
+%   \end{customtable}
+% - Example:
+%   \begin{customtable}[h]{lcc}{Experimental Results}
+%   \toprule
+%   Trial & Input & Output \\
+%   \midrule
+%   1 & 10 & 15 \\
+%   2 & 20 & 30 \\
+%   \bottomrule
+%   \end{customtable}
+% - Use booktabs rules (\toprule, \midrule, \bottomrule).
+% - No vertical lines; align numbers by decimal if needed.
+
+
+\begin{document}
+
+\maketitle
+\begin{abstract}This lecture explores the philosophical and methodological underpinnings of how mathematics conceptualizes various spaces in contrast to the observable physical universe. The main objective is to understand whether abstract mathematical spaces correspond to actual physical spaces. It begins by referencing Euclidean geometry, derived from axioms formalized by Euclid, which serves as the foundation for much of traditional geometry. One key learning point is how Euclidean geometry describes space—leading to well-known theorems, such as the triangle angle sum theorem. The lecture also highlights the significant introduction of coordinate systems, particularly Cartesian coordinates, enabling the geometric representation of shapes and spaces through algebraic formulas. The fundamental question raised is how these mathematical abstractions relate to physical reality, a question reserved for empirical investigation by physicists.\end{abstract}
+
+\section{Mathematics and Physical Reality}
+This section introduces a historical perspective from the 19th-century mathematics, drawing on ideas related to the interplay between abstraction in mathematics and physical reality as studied in physics.
+
+\begin{rembox}[Mathematics vs. Physics]
+The 19th-century mathematician (referred to as the "king of mathematics") made a key observation that reflects the difference between pure mathematics and the physical sciences:
+\begin{itemize}
+    \item Mathematics can conceptualize and describe a variety of abstract spaces using formulas and axioms.
+    \item However, whether these abstract spaces correspond to the real physical universe is a question that requires experimental verification by physicists.
+\end{itemize}
+\end{rembox}
+
+Indeed, in modern discussions, what mathematicians might call "spaces" are abstractions created from a set of postulates, detached from the question of whether or not they align with our physical world. Physicists, by contrast, are concerned with measurement and observation and use these concepts of space as arenas in which bodies move and interact.
+
+\section{Euclidean Geometry: Foundations}
+The most elementary and well-known mathematical description of space is the geometry we refer to as Euclidean geometry, based on the axioms set forth by Euclid. 
+
+\begin{defbox}[Euclidean Geometry]
+Euclidean geometry is a formal system built from a set of axioms (or postulates), originally compiled in Euclid's work \textit{Elements}. These axioms define the properties and relationships of points, lines, planes, and figures within a space.
+\end{defbox}
+
+From these axioms emerge various theorems and properties that shape the essence of Euclidean space.
+
+\begin{exbox}[Triangle Angle Sum Theorem]
+One well-known result in Euclidean geometry is that the sum of the interior angles of any triangle equals $180^\circ$. This theorem is a direct consequence of Euclidean axioms.
+\end{exbox}
+
+\subsection{Euclid's Axioms}
+The Euclidean axioms provide the foundation for Euclidean space. Some of the most well-known include:
+\begin{itemize}
+    \item A unique straight line exists between any two points.
+    \item A finite straight line can be extended indefinitely in a straight line.
+    \item Given any straight line segment, a circle can be drawn having the segment as radius and one endpoint as center.
+    \item All right angles are congruent.
+    \item The parallel postulate: If a line segment intersects two straight lines in such a way that the sum of the interior angles on one side is less than two right angles, then the two lines, if extended indefinitely, meet on that side.
+\end{itemize}
+
+These axioms serve as formal propositions from which further theorems are derived, and they characterize what we call "Euclidean space". 
+
+\subsection{The Relationship Between Geometry and Physical Space}
+A key philosophical point raised in the lecture is whether the space described by Euclidean geometry is the same as the physical space we experience through observation and measurement. 
+
+\begin{rembox}[Geometry vs. Physical Space]
+Physicists consider spaces as arenas where objects interact and change positions over time. The essential question is whether abstract mathematical spaces, like Euclidean space, accurately represent that physical reality. This is a matter of empirical research, requiring precise measurement.
+\end{rembox}
+
+In summary, the axioms of geometry give rise to descriptions of "spaces" that may or may not reflect the real world. Whether they do is determined by experimentation and observation, making this an interdisciplinary conversation between mathematicians and physicists.
+\subsection{Introduction to Coordinate Systems}
+To deepen our understanding of geometric concepts and link them to formulas, we need to introduce a fundamental tool: the coordinate system. Although we may seek to avoid complex formulas in some discussions, one cannot disregard the elegance and power that coordinate systems provide in representing geometric objects.
+
+In particular, we turn our attention to a system of coordinates familiar from school mathematics: the so-called Cartesian coordinates. This system allows us to describe geometric shapes like lines, circles, and hyperbolas analytically, i.e., using formulas.
+
+\begin{defbox}[Cartesian Coordinates]
+A \textbf{Cartesian coordinate system} in two dimensions consists of:
+\begin{itemize}
+    \item Two perpendicular axes, usually labeled as the $x$-axis (horizontal) and $y$-axis (vertical).
+    \item Each point in the plane is assigned a unique pair of numbers $(x, y)$, where $x$ is the projection of the point onto the $x$-axis, and $y$ is the projection onto the $y$-axis.
+\end{itemize}
+\end{defbox}
+
+The Cartesian plane transforms geometric shapes into algebraic expressions. For example, a line can be represented by a linear equation, a circle by a quadratic equation, and so forth.
+
+\begin{exbox}[Examples of Geometric Shapes in Cartesian Coordinates]
+\begin{itemize}
+    \item A line can be represented by the equation $y = mx + c$, where $m$ is the slope and $c$ is the intercept.
+    \item A circle centered at the origin with radius $r$ is given by the equation $x^2 + y^2 = r^2$.
+    \item A hyperbola has the standard form $\frac{x^2}{a^2} - \frac{y^2}{b^2} = 1$.
+\end{itemize}
+\end{exbox}
+
+\subsection{Defining Points via Coordinates}
+Let us now discuss the method of projecting a point onto the coordinate axes. Suppose we have a point $A$ in the plane. The Cartesian coordinates of $A$ are obtained by drawing perpendicular lines from $A$ to each of the coordinate axes.
+
+Each intersection picks out a value on the corresponding axis:
+\begin{itemize}
+    \item The horizontal intersection gives us the $x$-coordinate.
+    \item The vertical intersection gives us the $y$-coordinate.
+\end{itemize}
+
+Thus, the point $A$ is represented by the coordinate pair $(x_A, y_A)$. This is a fundamental and practical method for representing positions on a two-dimensional plane.
+
+\begin{rembox}[Dimensionality and Coordinates]
+In a two-dimensional plane, we need two coordinates to specify a point. In a three-dimensional space, we would need three coordinates $(x, y, z)$. The concept extends further into higher dimensions, but the basic principle remains the same.
+\end{rembox}
+
+The importance of this system cannot be overstated: it allows us to seamlessly transition between geometrical intuition and algebraic calculation. Indeed, the power of geometry is greatly expanded by the use of coordinates.
+
+\subsection{Conclusion: Linking Abstract Geometry and Physical Space}
+Throughout the lecture, we have explored how geometry conceptualizes abstract spaces. The addition of coordinate systems bridges the gap between pure geometric intuition and analytic representation. It is through these coordinates that we can apply the tools of algebra to solve geometric problems.
+
+However, the crucial question remains: To what extent does this beautiful mathematical abstraction correspond to the physical world? While Euclidean geometry is powerful, modern physics suggests that physical space might be non-Euclidean under certain conditions, such as in the presence of strong gravitational fields.
+
+Ultimately, the alignment between mathematical spaces and physical reality can only be determined by ongoing experimental observation and measurement—a continuous dialogue between mathematics and physics.
+
+\end{document}

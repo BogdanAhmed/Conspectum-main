@@ -1,0 +1,1 @@
+ffmpeg -i output_cut_big.wav -af "silencedetect=noise=-40dB:d=1" -f null - -loglevel info
