@@ -208,14 +208,21 @@ async def upload_file(file: UploadFile = File(...), language: str = None):
 async def run_processing(task_id: str, audio_bytes: bytes, language: str, logger: WebLogger):
     try:
         tex, pdf = await process(audio_bytes, ai, logger, language=language)
+
         tex_filename = f"result_{uuid.uuid4()}.tex"
         pdf_filename = f"result_{uuid.uuid4()}.pdf" if pdf else None
-        os.makedirs("static", exist_ok=True)
-        with open(f"static/{tex_filename}", "w", encoding="utf-8") as f:
+
+        os.makedirs(STATIC_DIR, exist_ok=True)
+
+        tex_path = os.path.join(STATIC_DIR, tex_filename)
+        with open(tex_path, "w", encoding="utf-8") as f:
             f.write(tex)
+
         if pdf:
-            with open(f"static/{pdf_filename}", "wb") as f:
+            pdf_path = os.path.join(STATIC_DIR, pdf_filename)
+            with open(pdf_path, "wb") as f:
                 f.write(pdf)
+
         tasks[task_id].update({
             "status": "done",
             "progress": 100,
