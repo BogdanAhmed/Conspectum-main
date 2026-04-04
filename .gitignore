@@ -2,7 +2,16 @@
 .vscode
 .DS_Store
 .env
-
+__pycache__/
+.ipynb_checkpoints/
+*.pdf
+*.wav
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
 *.iws
 *.iml
 *.ipr
