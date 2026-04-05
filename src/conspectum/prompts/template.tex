@@ -1,99 +1,91 @@
-\documentclass[12pt,a4paper]{article}
+\documentclass[a4paper]{article}
 
 \usepackage[utf8]{inputenc}
-\usepackage[<FONTENC>]{fontenc}
-\usepackage{lmodern}
-\usepackage[<BABEL_LANG>]{babel}
-\usepackage{amsmath, amssymb, amsthm}
-\usepackage{tcolorbox}
-\usepackage{enumitem}
-\usepackage{array, booktabs}
-\usepackage{multicol}
-\usepackage[a4paper, margin=1in]{geometry}
-\usepackage{fancyhdr}
-\usepackage{hyperref}
-\usepackage{cleveref}
+\usepackage{amsmath}
 \usepackage{graphicx}
-\usepackage{caption}
-\usepackage{footmisc}
 \usepackage{xcolor}
 
-\geometry{top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm, headheight=15pt}
-\hypersetup{colorlinks=true, linkcolor=blue, filecolor=magenta, urlcolor=cyan, pdfpagemode=FullScreen}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5em}
 
-\pagestyle{fancy}
-\fancyhf{}
-\lhead{\footnotesize \textit{<INSERT TITLE HERE>}}
-\rhead{\thepage}
+\definecolor{thmcolor}{RGB}{220,235,255}
+\definecolor{defcolor}{RGB}{232,247,228}
+\definecolor{excolor}{RGB}{255,244,220}
 
-% Custom colors for tcolorbox
-\tcbuselibrary{theorems, skins, breakable}
-\definecolor{thmcolor}{RGB}{200,230,255}
-\definecolor{defcolor}{RGB}{230,250,220}
-\definecolor{excolor}{RGB}{255,240,210}
+\providecommand{\mathbb}[1]{\mathbf{#1}}
+\providecommand{\mathcal}[1]{\mathit{#1}}
+\newcommand{\cref}[1]{\ref{#1}}
+\newcommand{\toprule}{\hline}
+\newcommand{\midrule}{\hline}
+\newcommand{\bottomrule}{\hline}
+\newcommand{\href}[2]{#2}
+\newcommand{\url}[1]{\texttt{#1}}
+\renewcommand{\labelitemi}{-}
+\renewcommand{\labelitemii}{--}
+
+\newcommand{\boxheading}[1]{%
+  \par\smallskip
+  \noindent\textbf{\ifx&#1&Note\else#1\fi}\par
+  \smallskip
+}
 
 % Theorem environment
 \newtheorem{theorem}{<THEOREM_NAME>}[section]
 \newenvironment{thmbox}[1][]{%
-  \begin{tcolorbox}[enhanced, breakable, colback=thmcolor, colframe=blue!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
-}{\end{tcolorbox}}
+  \begin{quote}\color{blue!60!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
 
 % Definition environment
 \newtheorem{definition}{<DEFINITION_NAME>}[section]
 \newenvironment{defbox}[1][]{%
-  \begin{tcolorbox}[enhanced, breakable, colback=defcolor, colframe=green!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
-}{\end{tcolorbox}}
+  \begin{quote}\color{green!40!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
 
 % Lemma environment
 \newtheorem{lemma}{<LEMMA_NAME>}[section]
 \newenvironment{lembox}[1][]{%
-  \begin{tcolorbox}[enhanced, breakable, colback=yellow!10, colframe=orange!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
-}{\end{tcolorbox}}
+  \begin{quote}\color{orange!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
 
 % Proposition environment
 \newtheorem{proposition}{<PROPOSITION_NAME>}[section]
 \newenvironment{propbox}[1][]{%
-  \begin{tcolorbox}[enhanced, breakable, colback=purple!5, colframe=purple!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
-}{\end{tcolorbox}}
+  \begin{quote}\color{violet!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
 
 % Corollary environment
 \newtheorem{corollary}{<COROLLARY_NAME>}[section]
 \newenvironment{corbox}[1][]{%
-  \begin{tcolorbox}[enhanced, breakable, colback=cyan!5, colframe=cyan!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
-}{\end{tcolorbox}}
+  \begin{quote}\color{cyan!50!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
 
 % Example environment
 \newtheorem{example}{<EXAMPLE_NAME>}[section]
 \newenvironment{exbox}[1][]{%
-  \begin{tcolorbox}[enhanced, breakable, colback=excolor, colframe=brown!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
-}{\end{tcolorbox}}
+  \begin{quote}\color{brown!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
 
 % Remark environment
 \newtheorem{remark}{<REMARK_NAME>}[section]
 \newenvironment{rembox}[1][]{%
-  \begin{tcolorbox}[enhanced, breakable, colback=gray!5, colframe=gray!50, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
-}{\end{tcolorbox}}
+  \begin{quote}\color{black!70}\boxheading{#1}\normalcolor
+}{\end{quote}}
 
 % Customize enumerate and itemize
-\setlist[enumerate]{leftmargin=*, itemsep=2pt, topsep=4pt}
-\setlist[itemize]{leftmargin=*, itemsep=2pt, topsep=4pt}
-
 % Custom table environment with caption, placement, and column spec
 \newenvironment{customtable}[3][htbp]{%
   % #1 = optional: placement (default: htbp)
   % #2 = mandatory: column specification (e.g., {ccc}, {l|c|r})
   % #3 = mandatory: table caption (goes above the table)
-  \begin{table}[#1]
+  \begin{table}
   \centering
   \renewcommand{\arraystretch}{1.2}
-  \caption{#3}
+  \textbf{#3}\par\smallskip
   \begin{tabular}{#2}
 }{%
   \end{tabular}
   \end{table}
 }
-
-\title{<INSERT TITLE HERE>}
 
 % ============================================================
 % DOCUMENT STRUCTURE GUIDELINES
@@ -176,8 +168,11 @@
 
 \begin{document}
 
-\maketitle
-\begin{abstract}<INSERT ABSTRACT HERE>\end{abstract}
+\begin{center}
+{\LARGE \textbf{<INSERT TITLE HERE>}}\\[1em]
+\end{center}
+
+\textbf{Abstract.} <INSERT ABSTRACT HERE>
 
 %% <INSERT CONTENT HERE>
 

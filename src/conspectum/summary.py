@@ -1,10 +1,9 @@
-import base64
 import dataclasses
-import io
 import os
 import pathlib
-import pydub
+import re
 import tempfile
+from pathlib import Path
 
 import openai
 from faster_whisper import WhisperModel
@@ -18,6 +17,50 @@ LANGUAGE_NAMES = {
     "en": "English",
 }
 
+DETAIL_LEVEL_PROMPTS = {
+    "brief": (
+        "Keep the overview compact. Mention only the central topic, the main ideas, and the final takeaway."
+    ),
+    "standard": (
+        "Provide a balanced overview with the main topic, the most important concepts, and the key conclusion."
+    ),
+    "detailed": (
+        "Provide a richer overview that mentions the learning goals, major definitions, formulas, examples, and conclusions."
+    ),
+}
+
+_TRANSCRIPTION_MODEL: WhisperModel | None = None
+
+SUPPORTED_AUDIO_EXTENSIONS = {
+    ".wav",
+    ".mp3",
+    ".m4a",
+    ".ogg",
+    ".oga",
+    ".opus",
+    ".flac",
+    ".aac",
+    ".mp4",
+    ".m4b",
+    ".webm",
+}
+
+SUPPORTED_AUDIO_MIME_TYPES = {
+    "audio/wav": ".wav",
+    "audio/x-wav": ".wav",
+    "audio/mpeg": ".mp3",
+    "audio/mp3": ".mp3",
+    "audio/mp4": ".m4a",
+    "audio/x-m4a": ".m4a",
+    "audio/aac": ".aac",
+    "audio/flac": ".flac",
+    "audio/x-flac": ".flac",
+    "audio/ogg": ".ogg",
+    "audio/opus": ".opus",
+    "audio/webm": ".webm",
+    "video/webm": ".webm",
+}
+
 
 @dataclasses.dataclass
 class Summary:
@@ -25,14 +68,101 @@ class Summary:
     abstract: str
 
 
-async def transcribe_audio(wav_file: bytes, logger: Logger = Logger()) -> str:
+def guess_audio_suffix(filename: str | None = None, mime_type: str | None = None) -> str:
+    if filename:
+        suffix = Path(filename).suffix.lower()
+        if suffix in SUPPORTED_AUDIO_EXTENSIONS:
+            return suffix
+
+    if mime_type:
+        normalized_mime = mime_type.lower().strip()
+        if normalized_mime in SUPPORTED_AUDIO_MIME_TYPES:
+            return SUPPORTED_AUDIO_MIME_TYPES[normalized_mime]
+
+    return ".wav"
+
+
+def is_supported_audio(filename: str | None = None, mime_type: str | None = None) -> bool:
+    if filename and Path(filename).suffix.lower() in SUPPORTED_AUDIO_EXTENSIONS:
+        return True
+
+    if mime_type and mime_type.lower().strip() in SUPPORTED_AUDIO_MIME_TYPES:
+        return True
+
+    return False
+
+
+def get_transcription_model() -> WhisperModel:
+    global _TRANSCRIPTION_MODEL
+    if _TRANSCRIPTION_MODEL is None:
+        _TRANSCRIPTION_MODEL = WhisperModel("base", device="cpu", compute_type="int8")
+    return _TRANSCRIPTION_MODEL
+
+
+def strip_markdown_fences(text: str) -> str:
+    stripped = text.strip()
+    if not stripped.startswith("```"):
+        return stripped
+
+    lines = stripped.splitlines()
+    if lines and lines[0].startswith("```"):
+        lines = lines[1:]
+    if lines and lines[-1].strip() == "```":
+        lines = lines[:-1]
+    return "\n".join(lines).strip()
+
+
+def normalize_latex_text(text: str) -> str:
+    normalized = strip_markdown_fences(text)
+
+    substitutions = [
+        (r"\*\*(.+?)\*\*", r"\\textbf{\1}"),
+        (r"__(.+?)__", r"\\textbf{\1}"),
+    ]
+
+    for pattern, replacement in substitutions:
+        normalized = re.sub(pattern, replacement, normalized, flags=re.DOTALL)
+
+    normalized = normalized.replace("–", "--")
+    normalized = normalized.replace("—", "---")
+    return normalized.strip()
+
+
+def parse_summary_response(response_text: str) -> Summary:
+    cleaned = normalize_latex_text(response_text)
+    parts = [part.strip() for part in cleaned.split("\n\n", maxsplit=1)]
+
+    title = parts[0] if parts else "Lecture Summary"
+    abstract = parts[1] if len(parts) > 1 else ""
+
+    title = re.sub(r"^(title|заголовок)\s*:\s*", "", title, flags=re.IGNORECASE)
+    abstract = re.sub(r"^(abstract|summary|аннотация)\s*:\s*", "", abstract, flags=re.IGNORECASE)
+
+    if not abstract:
+        lines = [line.strip() for line in cleaned.splitlines() if line.strip()]
+        if len(lines) >= 2:
+            title = re.sub(r"^(title|заголовок)\s*:\s*", "", lines[0], flags=re.IGNORECASE)
+            abstract = " ".join(lines[1:])
+        else:
+            abstract = cleaned
+
+    return Summary(title=title.strip(), abstract=abstract.strip())
+
+
+async def transcribe_audio(
+    audio_file: bytes,
+    logger: Logger = Logger(),
+    filename: str | None = None,
+    mime_type: str | None = None,
+) -> str:
     """Transcribe audio to text using local Whisper model."""
-    # Load model (will download on first use)
-    model = WhisperModel("base", device="cpu", compute_type="int8")
+    model = get_transcription_model()
     
-    # Save audio to temporary file
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
-        temp_file.write(wav_file)
+    suffix = guess_audio_suffix(filename=filename, mime_type=mime_type)
+
+    # Save audio to a temp file with its original suffix so ffmpeg/Whisper can decode it correctly.
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temp_file:
+        temp_file.write(audio_file)
         temp_path = temp_file.name
     
     try:
@@ -64,49 +194,69 @@ async def detect_language_from_text(text: str, ai: openai.AsyncOpenAI) -> str:
         temperature=0.1
     )
     
-    detected = response.choices[0].message.content.strip().lower()
+    detected = (response.choices[0].message.content or "").strip().lower()
     if detected not in ("ru", "en"):
         return "en"  # Default to English
     return detected
 
 
-async def detect_language(wav_file: bytes, ai: openai.AsyncOpenAI) -> str:
-    # First transcribe audio locally
-    transcript = await transcribe_audio(wav_file)
-    
-    # Then detect language from text
+async def detect_language(
+    audio_file: bytes,
+    ai: openai.AsyncOpenAI,
+    filename: str | None = None,
+    mime_type: str | None = None,
+) -> str:
+    transcript = await transcribe_audio(audio_file, filename=filename, mime_type=mime_type)
     return await detect_language_from_text(transcript, ai)
 
 
-async def make_summary(wav_file: bytes, ai: openai.AsyncOpenAI, language: str, logger: Logger = Logger()) -> Summary:
-    # First transcribe the audio locally
-    transcript = await transcribe_audio(wav_file, logger)
-    
-    # Then create summary from text
-    with open(pathlib.Path(__file__).parent / "prompts/summary_prompt.txt") as prompt_file:
+async def make_summary_from_transcript(
+    transcript: str,
+    ai: openai.AsyncOpenAI,
+    language: str,
+    logger: Logger = Logger(),
+    detail_level: str = "standard",
+) -> Summary:
+    with open(pathlib.Path(__file__).parent / "prompts/summary_prompt.txt", encoding="utf-8", errors="replace") as prompt_file:
         prompt = prompt_file.read()
     prompt = prompt.replace("<OUTPUT_LANGUAGE>", LANGUAGE_NAMES[language])
-    
-    # Use cheaper model for text processing
+
     response = await ai.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": prompt},
+            {
+                "role": "system",
+                "content": (
+                    f"Summary detail level: {detail_level}. "
+                    f"{DETAIL_LEVEL_PROMPTS.get(detail_level, DETAIL_LEVEL_PROMPTS['standard'])}"
+                ),
+            },
             {"role": "user", "content": f"Create a summary from this lecture transcript:\n\n{transcript}"},
         ],
         temperature=0.3
     )
-    response = response.choices[0].message.content
-    await logger.file("summary", response, Logger.FileType.TEXT)
+    response_text = response.choices[0].message.content or ""
+    await logger.file("summary", response_text, Logger.FileType.TEXT)
 
-    response = response.split("\n\n", maxsplit=1)
-    title, abstract = response[0], response[1]
-    if title.lower().startswith("title: "):
-        title = title[len("title: ") :]
+    summary = parse_summary_response(response_text)
 
-    await logger.partial_result(f"<b>The topic of the lecture:</b>\n{title}")
-    await logger.partial_result(f"<b>The abstract of the lecture:</b>\n{abstract}")
-    return Summary(title=title, abstract=abstract)
+    await logger.partial_result(f"<b>The topic of the lecture:</b>\n{summary.title}")
+    await logger.partial_result(f"<b>The abstract of the lecture:</b>\n{summary.abstract}")
+    return summary
+
+
+async def make_summary(
+    audio_file: bytes,
+    ai: openai.AsyncOpenAI,
+    language: str,
+    logger: Logger = Logger(),
+    detail_level: str = "standard",
+    filename: str | None = None,
+    mime_type: str | None = None,
+) -> Summary:
+    transcript = await transcribe_audio(audio_file, logger, filename=filename, mime_type=mime_type)
+    return await make_summary_from_transcript(transcript, ai, language, logger, detail_level=detail_level)
 
 
 async def postprocess_summary(
@@ -127,7 +277,7 @@ async def postprocess_summary(
     Returns:
         Enhanced LaTeX content with corrections and references
     """
-    with open(pathlib.Path(__file__).parent / "prompts/postprocess_prompt.txt") as prompt_file:
+    with open(pathlib.Path(__file__).parent / "prompts/postprocess_prompt.txt", encoding="utf-8", errors="replace") as prompt_file:
         prompt = prompt_file.read()
     
     prompt = prompt.replace("<OUTPUT_LANGUAGE>", LANGUAGE_NAMES[language])
@@ -147,18 +297,7 @@ async def postprocess_summary(
         temperature=0.3,  # Lower temperature for more consistent output
     )
     
-    enhanced_content = response.choices[0].message.content
-    
-    # Remove code block markers if present
-    if enhanced_content.startswith("```"):
-        lines = enhanced_content.split("\n")
-        # Remove first line (```latex or similar)
-        if lines[0].startswith("```"):
-            lines = lines[1:]
-        # Remove last line if it's ```
-        if lines and lines[-1].strip() == "```":
-            lines = lines[:-1]
-        enhanced_content = "\n".join(lines)
+    enhanced_content = normalize_latex_text(response.choices[0].message.content or "")
     
     # Basic validation: check that essential LaTeX structure is preserved
     required_elements = [

@@ -6,3 +6,4 @@ pdflatex
 pydub
 fastapi
 uvicorn
+reportlab

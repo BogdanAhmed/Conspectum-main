@@ -1,0 +1,221 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[english]{babel}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{tcolorbox}
+\usepackage{enumitem}
+\usepackage{array, booktabs}
+\usepackage{multicol}
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{footmisc}
+\usepackage{xcolor}
+
+\geometry{top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm, headheight=15pt}
+\hypersetup{colorlinks=true, linkcolor=blue, filecolor=magenta, urlcolor=cyan, pdfpagemode=FullScreen}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\footnotesize \textit{Understanding Information Theory through Probabilistic Events and Logarithmic Functions}}
+\rhead{\thepage}
+
+% Custom colors for tcolorbox
+\tcbuselibrary{theorems, skins, breakable}
+\definecolor{thmcolor}{RGB}{200,230,255}
+\definecolor{defcolor}{RGB}{230,250,220}
+\definecolor{excolor}{RGB}{255,240,210}
+
+% Theorem environment
+\newtheorem{theorem}{Theorem}[section]
+\newenvironment{thmbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=thmcolor, colframe=blue!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Definition environment
+\newtheorem{definition}{Definition}[section]
+\newenvironment{defbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=defcolor, colframe=green!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Lemma environment
+\newtheorem{lemma}{Lemma}[section]
+\newenvironment{lembox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=yellow!10, colframe=orange!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Proposition environment
+\newtheorem{proposition}{Proposition}[section]
+\newenvironment{propbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=purple!5, colframe=purple!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Corollary environment
+\newtheorem{corollary}{Corollary}[section]
+\newenvironment{corbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=cyan!5, colframe=cyan!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Example environment
+\newtheorem{example}{Example}[section]
+\newenvironment{exbox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=excolor, colframe=brown!50!black, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Remark environment
+\newtheorem{remark}{Remark}[section]
+\newenvironment{rembox}[1][]{%
+  \begin{tcolorbox}[enhanced, breakable, colback=gray!5, colframe=gray!50, title=#1, fonttitle=\bfseries, arc=3pt, boxrule=0.5pt]
+}{\end{tcolorbox}}
+
+% Customize enumerate and itemize
+\setlist[enumerate]{leftmargin=*, itemsep=2pt, topsep=4pt}
+\setlist[itemize]{leftmargin=*, itemsep=2pt, topsep=4pt}
+
+% Custom table environment with caption, placement, and column spec
+\newenvironment{customtable}[3][htbp]{%
+  % #1 = optional: placement (default: htbp)
+  % #2 = mandatory: column specification (e.g., {ccc}, {l|c|r})
+  % #3 = mandatory: table caption (goes above the table)
+  \begin{table}[#1]
+  \centering
+  \renewcommand{\arraystretch}{1.2}
+  \caption{#3}
+  \begin{tabular}{#2}
+}{%
+  \end{tabular}
+  \end{table}
+}
+
+\title{Understanding Information Theory through Probabilistic Events and Logarithmic Functions}
+
+\begin{document}
+
+\maketitle
+\begin{abstract}
+In this lecture, the speaker explores the relationship between probabilistic events and the concept of information within the framework of information theory. The main learning objectives include understanding how independent probabilistic events contribute to joint information and the role of logarithmic functions in quantifying this information. Key concepts discussed include the notion of unexpected outcomes in probabilistic events, the significance of independent events in calculating joint information, and the implications of average information about a system. The lecture concludes with the assertion that uncertainty in a system can be quantified, emphasizing that the minimum measure of uncertainty is zero when complete knowledge is obtained.
+\end{abstract}
+
+\section{Introduction}
+This section introduces the concept of probabilistic events and their role in conveying information within the framework of information theory. The discussion focuses on the relationship between independent probabilistic events and the amount of information they provide.
+
+\section{Probabilistic Events}
+In this section, we explore two specific probabilistic events represented by Professor L. The aim is to determine which of these events conveys more information.
+
+\begin{itemize}
+    \item **Event 1**: Professor L interacts with students in a traditional classroom setting.
+    \item **Event 2**: Professor L interacts with students outside the classroom, in an open environment.
+\end{itemize}
+
+The question arises: which of these events provides more information? 
+
+\begin{remark}[Unexpected Outcomes]
+The second event, where Professor L interacts with students outside, is considered more informative because it represents an unexpected scenario. In probabilistic terms, unexpected outcomes tend to provide greater information content.
+\end{remark}
+
+\section{Information and Probability}
+The relationship between the probability of an event and the information it conveys can be summarized as follows:
+
+\begin{itemize}
+    \item The less probable an event is, the more information it tends to convey.
+    \item This aligns with the principle that information is inversely related to the probability of occurrence.
+\end{itemize}
+
+The discussion leads to the conclusion that when considering two independent probabilistic events, the event with a lower probability will yield more information.
+
+\section{Joint Information and Logarithmic Functions}
+This section discusses the concept of joint information in the context of independent probabilistic events and introduces the logarithmic function as a key component in quantifying information.
+
+\subsection{Joint Information}
+Joint information refers to the total information obtained from two independent probabilistic events. If two events \( A \) and \( B \) are independent, the joint information \( I(A, B) \) can be expressed as the sum of the individual information contributions:
+
+\begin{equation}
+I(A, B) = I(A) + I(B)
+\end{equation}
+
+where \( I(A) \) and \( I(B) \) represent the information from events \( A \) and \( B \), respectively.
+
+\subsection{Role of Logarithmic Functions}
+The logarithmic function is fundamental in information theory, as it is the only function that satisfies the additive property of joint information. Specifically, if \( I \) denotes information, then:
+
+\begin{equation}
+I(A) = -\log_b P(A)
+\end{equation}
+
+where \( P(A) \) is the probability of event \( A \) occurring, and \( b \) is the base of the logarithm. The most common bases used are \( b = 2 \) (binary logarithm) and \( b = e \) (natural logarithm).
+
+\subsection{Average Information}
+The concept of average information is introduced as a measure of the expected information about a system. This measure can be calculated using the probabilities of the system's states. The average information \( \bar{I} \) can be expressed as:
+
+\begin{equation}
+\bar{I} = \sum_{i} P(i) I(i)
+\end{equation}
+
+where \( P(i) \) is the probability of state \( i \), and \( I(i) \) is the information associated with that state.
+
+\subsection{Information Received from a System}
+In this section, we discuss the concept of information received from a system when it is observed in a particular state. When the system is found in a specific state, it indicates that some information has been obtained about the system. The key question arises: how much information has been received?
+
+\begin{defbox}[Quantity of Information]
+The quantity of information received when observing the system in a particular state can be quantified. This quantity is a measure of the information gained from the observation.
+\end{defbox}
+
+The measure of uncertainty associated with the system can also be considered. If the knowledge about the system is unknown, we can ask: what is the measure of this unknown? This leads us to the concept of system uncertainty.
+
+\begin{rembox}[System Uncertainty]
+The measure of system uncertainty is crucial in information theory. It reflects the amount of unpredictability associated with the system's states.
+\end{rembox}
+
+As we analyze the expressions related to this uncertainty, we can find that the minimum measure of uncertainty is zero. This indicates complete knowledge about the system.
+
+\begin{thmbox}[Minimum Uncertainty]
+The minimum measure of uncertainty in a system is given by:
+\[
+\text{Minimum Uncertainty} = 0
+\]
+This occurs when complete knowledge of the system is obtained.
+\end{thmbox}
+
+The discussion emphasizes the relationship between the states of the system, the information received, and the uncertainty associated with it. The first state of the system is particularly significant, as it represents the initial observation and the corresponding information gained.
+
+\subsection{Entropy and Its Implications}
+In this section, we delve into the concept of entropy as it relates to the information received from a system. The entropy of a system provides a quantitative measure of the uncertainty associated with its states.
+
+\begin{defbox}[Entropy]
+Entropy is defined as a measure of the unpredictability or uncertainty in a system. It quantifies the amount of information that is missing when predicting the state of the system.
+\end{defbox}
+
+When the system is in its first state, the entropy is equal to zero. This indicates that there is no uncertainty regarding the state of the system, as all other states contribute no additional information.
+
+\begin{thmbox}[Entropy in the First State]
+For the first state of the system, the entropy is given by:
+\[
+H(X) = 0
+\]
+This signifies that there is complete knowledge of the system when it is observed in this state.
+\end{thmbox}
+
+The implications of this result are profound: when the entropy is zero, it means that the measure of uncertainty is also zero. Thus, the knowledge gained from observing the system in its first state is maximized, leading to a complete understanding of the system's behavior.
+
+\begin{rembox}[Conclusion on Entropy]
+The relationship between entropy and information is crucial in information theory. A system with zero entropy indicates that all uncertainty has been resolved, and complete information is available.
+\end{rembox}
+
+\section{References}
+\begin{enumerate}
+    \item Cover, T. M., & Thomas, J. A. (2006). \textit{Elements of Information Theory}. 2nd Edition. Chapter 2: Information.
+    \item Shannon, C. E. (1948). A Mathematical Theory of Communication. \textit{The Bell System Technical Journal}, 27, 379-423.
+    \item MacKay, D. J. C. (2003). \textit{Information Theory, Inference, and Learning Algorithms}. Chapter 1: Information Theory.
+    \item Kullback, S., & Leibler, R. A. (1951). On Information and Sufficiency. \textit{The Annals of Mathematical Statistics}, 22(1), 79-86.
+    \item Jaynes, E. T. (1957). Information Theory and Statistical Mechanics. \textit{Physical Review}, 106(4), 620-630.
+    \item Rojas, C. (2018). Information Theory: A Tutorial Introduction. \textit{arXiv preprint arXiv:1808.02595}.
+    \item Cover, T. M., & Thomas, J. A. (2006). \textit{Elements of Information Theory}. 2nd Edition. Chapter 8: Asymptotic Equipartition Property.
+\end{enumerate}
+
+\end{document}

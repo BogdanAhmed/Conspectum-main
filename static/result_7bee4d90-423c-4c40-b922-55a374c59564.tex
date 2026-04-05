@@ -1,0 +1,197 @@
+\documentclass[a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{xcolor}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5em}
+
+\definecolor{thmcolor}{RGB}{220,235,255}
+\definecolor{defcolor}{RGB}{232,247,228}
+\definecolor{excolor}{RGB}{255,244,220}
+
+\providecommand{\mathbb}[1]{\mathbf{#1}}
+\providecommand{\mathcal}[1]{\mathit{#1}}
+\newcommand{\cref}[1]{\ref{#1}}
+\newcommand{\toprule}{\hline}
+\newcommand{\midrule}{\hline}
+\newcommand{\bottomrule}{\hline}
+\newcommand{\href}[2]{#2}
+\newcommand{\url}[1]{\texttt{#1}}
+\renewcommand{\labelitemi}{-}
+\renewcommand{\labelitemii}{--}
+
+\newcommand{\boxheading}[1]{%
+  \par\smallskip
+  \noindent\textbf{\ifx&#1&Note\else#1\fi}\par
+  \smallskip
+}
+
+% Theorem environment
+\newtheorem{theorem}{Theorem}[section]
+\newenvironment{thmbox}[1][]{%
+  \begin{quote}\color{blue!60!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Definition environment
+\newtheorem{definition}{Definition}[section]
+\newenvironment{defbox}[1][]{%
+  \begin{quote}\color{green!40!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Lemma environment
+\newtheorem{lemma}{Lemma}[section]
+\newenvironment{lembox}[1][]{%
+  \begin{quote}\color{orange!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Proposition environment
+\newtheorem{proposition}{Proposition}[section]
+\newenvironment{propbox}[1][]{%
+  \begin{quote}\color{violet!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Corollary environment
+\newtheorem{corollary}{Corollary}[section]
+\newenvironment{corbox}[1][]{%
+  \begin{quote}\color{cyan!50!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Example environment
+\newtheorem{example}{Example}[section]
+\newenvironment{exbox}[1][]{%
+  \begin{quote}\color{brown!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Remark environment
+\newtheorem{remark}{Remark}[section]
+\newenvironment{rembox}[1][]{%
+  \begin{quote}\color{black!70}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Customize enumerate and itemize
+% Custom table environment with caption, placement, and column spec
+\newenvironment{customtable}[3][htbp]{%
+  % #1 = optional: placement (default: htbp)
+  % #2 = mandatory: column specification (e.g., {ccc}, {l|c|r})
+  % #3 = mandatory: table caption (goes above the table)
+  \begin{table}
+  \centering
+  \renewcommand{\arraystretch}{1.2}
+  \textbf{#3}\par\smallskip
+  \begin{tabular}{#2}
+}{%
+  \end{tabular}
+  \end{table}
+}
+
+\begin{document}
+
+\begin{center}
+{\LARGE \textbf{Understanding Probabilistic Events and Information Theory in Mathematical Contexts}}\\[1em]
+\end{center}
+
+\textbf{Abstract.} This lecture explores the relationship between probabilistic events and information theory, focusing on how different probabilistic scenarios can yield varying amounts of information. The speaker discusses two independent probabilistic events and introduces the concept that the joint information of such events is the sum of their individual information, highlighting the logarithmic function as a critical measure of information. The lecture also addresses the concept of system uncertainty and how to quantify the information gained from observing a system. Key examples illustrate the implications of these theories, including the significance of entropy in determining the measure of information within a system.
+
+\section{Introduction}
+This section introduces the fundamental concepts of probabilistic events and their implications in information theory. It sets the stage for understanding how different events can convey varying amounts of information.
+
+\section{Probabilistic Events}
+In this part of the lecture, the speaker discusses two independent probabilistic events, denoted as \(E_1\) and \(E_2\). The exploration of these events aims to determine which event provides more information regarding a specific scenario.
+
+\begin{itemize}
+    \item The first event, represented by Professor \(L\), is analyzed in conjunction with the second event, also represented by Professor \(L\).
+    \item The inquiry focuses on the amount of information each event conveys and how they relate to each other.
+\end{itemize}
+
+\begin{rembox}[Note]
+The speaker emphasizes the significance of unexpected outcomes in determining the amount of information gained from a probabilistic event. An event that is less likely to occur tends to provide more information when it does happen.
+\end{rembox}
+
+\begin{defbox}[Independent Events]
+Two events \(E_1\) and \(E_2\) are said to be independent if the occurrence of one does not affect the probability of the occurrence of the other.
+\end{defbox}
+
+\begin{rembox}[Note]
+The speaker notes that the second event is less probable than the first, which implies that it carries more information. This relationship between probability and information is a key concept in understanding information theory.
+\end{rembox}
+
+\section{Logical Steps in Information Theory}
+The discussion progresses to outline logical steps in analyzing independent probabilistic events:
+
+\begin{enumerate}
+    \item Identify two independent probabilistic events.
+    \item Assess the likelihood of each event occurring.
+    \item Determine which event provides more information based on its probability.
+\end{enumerate}
+
+This framework sets the foundation for further exploration of how information is quantified in probabilistic contexts.
+
+\section{Joint Information and Logarithmic Functions}
+In this section, we delve into the concept of joint information for independent probabilistic events. The key points discussed include:
+
+\begin{itemize}
+    \item The joint information of two independent events is simply the sum of their individual information.
+    \item The only function that satisfies this additive property is the logarithm function.
+    \item Specifically, when using a binary logarithm (base 2), the information can be expressed in terms of bits and bytes.
+\end{itemize}
+
+The logarithmic function serves as a fundamental measure of information, reinforcing the relationship between probability and information theory.
+
+\subsection{Average Information in Systems}
+The lecture introduces the notion of average information within a system. The following points were highlighted:
+
+\begin{itemize}
+    \item Consider a system that has the potential to escape to a past state.
+    \item The probability of returning to a previous state can be quantified as an interesting measure of information.
+    \item This average information provides insights into the behavior and characteristics of the system.
+\end{itemize}
+
+This concept emphasizes the importance of understanding the average information when analyzing probabilistic systems.
+
+\subsection{Information Gained from Observing a System}
+In this section, the lecture discusses the information obtained from observing a system in a specific state. Key points include:
+
+\begin{itemize}
+    \item Upon observing the system in a particular state, one receives a piece of information about it.
+    \item The question arises: how much information has been received? This leads to the quantification of information.
+    \item The quantity of information can be measured, reflecting the knowledge gained about the system.
+\end{itemize}
+
+The speaker emphasizes that this measure of information is crucial for understanding the system's behavior and the implications of the observed state.
+
+\subsection{System Uncertainty}
+The lecture further explores the concept of system uncertainty, particularly when the system is not directly observed. Important aspects include:
+
+\begin{itemize}
+    \item When considering a system without direct observation, certain properties remain unknown, leading to uncertainty.
+    \item The measure of this uncertainty is a critical aspect of information theory.
+    \item The minimum measure of uncertainty is identified as zero, indicating complete knowledge of the system.
+\end{itemize}
+
+This discussion highlights the relationship between uncertainty and the information that can be derived from a system, reinforcing the importance of quantifying both in the context of probabilistic events.
+
+\subsection{Entropy and Its Implications}
+In this section, the concept of entropy is further elaborated, particularly in relation to the states of a system. Key points include:
+
+\begin{itemize}
+    \item The first state of the system is defined such that its entropy is equal to zero. This implies that there is complete certainty regarding the state of the system.
+    \item For the first state, all other terms contribute nothing to the measure of entropy, reinforcing the idea that when the system is fully known, the uncertainty is minimized.
+    \item The relationship between entropy and the measure of information is emphasized, where a measure of zero entropy corresponds to a scenario of complete information about the system.
+\end{itemize}
+
+This discussion underscores the significance of entropy in quantifying the information within a system, illustrating how it serves as a fundamental measure in information theory.
+
+\section{References}
+Shannon, C. E. (1948). A Mathematical Theory of Communication. \textit{The Bell System Technical Journal}, 27(3), 379-423.\\
+Cover, T. M., & Thomas, J. A. (2006). \textit{Elements of Information Theory}. 2nd Edition. Chapter 2: Entropy.\\
+MacKay, D. J. C. (2003). \textit{Information Theory, Inference, and Learning Algorithms}. Chapter 1: Information Theory.\\
+Kullback, S., & Leibler, R. A. (1951). On Information and Sufficiency. \textit{The Annals of Mathematical Statistics}, 22(1), 79-86.\\
+Jaynes, E. T. (1957). Information Theory and Statistical Mechanics. \textit{Physical Review}, 106(4), 620-630.\\
+Rosenblatt, M. (1956). Remarks on the Use of Information Theory in the Study of Random Processes. \textit{The Annals of Mathematical Statistics}, 27(4), 1050-1056.\\
+Cover, T. M., & Thomas, J. A. (2012). \textit{Elements of Information Theory}. 2nd Edition. Chapter 8: Rate-Distortion Theory.\\
+Grunwald, P. D., & Langford, J. (2005). The Minimum Description Length Principle. \textit{The MIT Press}.\\
+Bishop, C. M. (2006). \textit{Pattern Recognition and Machine Learning}. Chapter 1: Probability Distributions.\\
+
+\end{document}

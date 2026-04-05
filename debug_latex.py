@@ -18,13 +18,13 @@ def check_pdflatex():
         result = subprocess.run(['pdflatex', '--version'], capture_output=True, text=True)
         if result.returncode == 0:
             version_line = result.stdout.split('\n')[0]
-            print(f"✅ pdflatex found: {version_line}")
+            print(f"[OK] pdflatex found: {version_line}")
             return True
         else:
-            print("❌ pdflatex command failed")
+            print("[ERROR] pdflatex command failed")
             return False
     except FileNotFoundError:
-        print("❌ pdflatex not found in PATH")
+        print("[ERROR] pdflatex not found in PATH")
         print("\nTo install pdflatex:")
         print("  macOS:   brew install --cask mactex-no-gui")
         print("  Ubuntu:  sudo apt-get install texlive-latex-base")
@@ -60,18 +60,18 @@ Hello, World!
         pdf_file = tex_file.replace('.tex', '.pdf')
         
         if os.path.exists(pdf_file):
-            print("✅ Simple LaTeX document compiled successfully")
+            print("[OK] Simple LaTeX document compiled successfully")
             return True
         else:
-            print("❌ PDF was not created")
+            print("[ERROR] PDF was not created")
             print("\nLast 10 lines of output:")
             print(result.stdout.split('\n')[-10:])
             return False
     except subprocess.TimeoutExpired:
-        print("❌ Compilation timed out")
+        print("[ERROR] Compilation timed out")
         return False
     except Exception as e:
-        print(f"❌ Error during compilation: {e}")
+        print(f"[ERROR] Error during compilation: {e}")
         return False
     finally:
         # Clean up
@@ -88,7 +88,7 @@ def analyze_tex_file(tex_file_path):
     print("=" * 60)
     
     if not os.path.exists(tex_file_path):
-        print(f"❌ File not found: {tex_file_path}")
+        print(f"[ERROR] File not found: {tex_file_path}")
         return False
     
     with open(tex_file_path, 'r', encoding='utf-8') as f:
@@ -108,13 +108,13 @@ def analyze_tex_file(tex_file_path):
     all_present = True
     for pattern, name in required:
         if pattern in content:
-            print(f"  ✅ {name}")
+            print(f"  [OK] {name}")
         else:
-            print(f"  ❌ {name} MISSING")
+            print(f"  [ERROR] {name} MISSING")
             all_present = False
     
     if not all_present:
-        print("\n❌ Document is missing required LaTeX elements")
+        print("\n[ERROR] Document is missing required LaTeX elements")
         return False
     
     # Try to compile
@@ -133,11 +133,11 @@ def analyze_tex_file(tex_file_path):
         
         if os.path.exists(pdf_file):
             size = os.path.getsize(pdf_file)
-            print(f"✅ PDF created successfully ({size} bytes)")
+            print(f"[OK] PDF created successfully ({size} bytes)")
             print(f"   Location: {pdf_file}")
             return True
         else:
-            print("❌ PDF was not created")
+            print("[ERROR] PDF was not created")
             
             # Extract errors from log
             output = result.stdout + result.stderr
@@ -158,10 +158,10 @@ def analyze_tex_file(tex_file_path):
             
             return False
     except subprocess.TimeoutExpired:
-        print("❌ Compilation timed out (>60s)")
+        print("[ERROR] Compilation timed out (>60s)")
         return False
     except Exception as e:
-        print(f"❌ Error during compilation: {e}")
+        print(f"[ERROR] Error during compilation: {e}")
         return False
 
 def main():
@@ -170,12 +170,12 @@ def main():
     
     # Check pdflatex
     if not check_pdflatex():
-        print("\n⚠️  Cannot continue without pdflatex")
+        print("\n[WARN] Cannot continue without pdflatex")
         sys.exit(1)
     
     # Test simple compilation
     if not test_simple_latex():
-        print("\n⚠️  Simple LaTeX compilation failed")
+        print("\n[WARN] Simple LaTeX compilation failed")
         print("This indicates a problem with your LaTeX installation")
         sys.exit(1)
     
