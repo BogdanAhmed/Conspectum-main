@@ -20,9 +20,6 @@ const taskTitle = document.getElementById("taskTitle");
 const taskLanguage = document.getElementById("taskLanguage");
 const taskDetail = document.getElementById("taskDetail");
 const taskSource = document.getElementById("taskSource");
-const taskSize = document.getElementById("taskSize");
-const taskCreated = document.getElementById("taskCreated");
-const taskDuration = document.getElementById("taskDuration");
 const taskStage = document.getElementById("taskStage");
 const warningBox = document.getElementById("warningBox");
 const errorBox = document.getElementById("errorBox");
@@ -183,7 +180,7 @@ function getFlowGroup(stage, status) {
     if (
         [
             "В очереди",
-            "Запуск обработки",
+            "Началась обработка",
             "Подготовка URL",
             "Скачивание источника",
         ].includes(stage)
@@ -263,7 +260,7 @@ function inferDisplayedProgress(progress, status, stage) {
 
     const stageRanges = {
         "В очереди": [2, 4],
-        "Запуск обработки": [4, 8],
+        "Началась обработка": [4, 8],
         "Подготовка URL": [8, 12],
         "Скачивание источника": [12, 18],
         "Распознавание аудио": [18, 38],
@@ -301,6 +298,11 @@ function updateProgress(progress, status = "idle", stage = "Ожидание") {
 
     if (status === "idle") {
         progressText.textContent = "Готово к запуску";
+        return;
+    }
+
+    if (stage === "Началась обработка") {
+        progressText.textContent = "Началась обработка, делаем качественный конспект, ожидайте";
         return;
     }
 
@@ -434,13 +436,7 @@ function inferStage(data) {
 }
 
 function refreshLiveDuration() {
-    if (!state.lastData || !state.lastData.created_at || state.lastData.status !== "running") {
-        return;
-    }
-    const started = new Date(state.lastData.created_at);
-    if (Number.isNaN(started.getTime())) return;
-    const seconds = Math.max(0, Math.round((Date.now() - started.getTime()) / 1000));
-    taskDuration.textContent = formatDuration(seconds, true);
+    return;
 }
 
 function ensureLiveDurationTimer() {
@@ -460,9 +456,6 @@ function renderMetadata(data) {
     taskDetail.textContent = prettyDetail(data.detail);
     taskSource.textContent = truncate(data.source_name, 54);
     taskSource.title = data.source_name || "";
-    taskSize.textContent = formatBytes(data.audio_size_bytes);
-    taskCreated.textContent = formatTime(data.created_at);
-    taskDuration.textContent = formatDuration(data.duration_seconds, data.status === "running");
     taskStage.textContent = stageLabel;
 
     const lines = [
@@ -506,9 +499,6 @@ function renderIdleDashboard() {
     taskDetail.textContent = prettyDetail(detailSelect.value);
     taskSource.textContent = "Файл или URL";
     taskSource.title = "";
-    taskSize.textContent = "—";
-    taskCreated.textContent = "—";
-    taskDuration.textContent = "—";
     taskStage.textContent = "Ожидание запуска";
     resultSummary.innerHTML =
         "<strong>После обработки появятся:</strong><br>transcript.txt, result.tex, result.pdf и архив со всеми файлами.";
@@ -531,7 +521,7 @@ function prepareDashboard(sourceLabel) {
     state.lastData = null;
     state.renderedMessagesCount = 0;
     setStatus("running");
-    updateProgress(0, "running", "Запуск обработки");
+    updateProgress(0, "running", "Началась обработка");
     showWarning("");
     showError("");
     taskIdBadge.textContent = "Задача создаётся";
@@ -541,10 +531,7 @@ function prepareDashboard(sourceLabel) {
     taskDetail.textContent = prettyDetail(detailSelect.value);
     taskSource.textContent = sourceLabel || "Подготовка";
     taskSource.title = sourceLabel || "";
-    taskSize.textContent = "Ожидание";
-    taskCreated.textContent = "Только что";
-    taskDuration.textContent = "Запуск";
-    taskStage.textContent = "Запуск обработки";
+    taskStage.textContent = "Началась обработка";
     resultSummary.textContent = "После старта здесь появятся метаданные и ссылки на скачивание.";
     resultActions.innerHTML = '<span class="chip">Файлы появятся после обработки</span>';
     summaryPreview.textContent = "Финальный конспект появится здесь после завершения обработки.";

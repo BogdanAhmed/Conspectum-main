@@ -1176,8 +1176,9 @@ select:focus {
 }
 
 .status-layout {
-    grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
+    grid-template-columns: minmax(0, 1.28fr) minmax(320px, 0.72fr);
     align-items: start;
+    gap: 18px;
 }
 
 .status-head {
@@ -1279,13 +1280,14 @@ select:focus {
 
 .flow-steps {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
+    gap: 18px;
     margin-top: 18px;
 }
 
 .flow-step {
     position: relative;
-    min-height: 112px;
+    min-height: 108px;
     padding: 14px;
     border-radius: 18px;
     border: 1px solid var(--line);
@@ -1407,12 +1409,12 @@ select:focus {
 }
 
 .meta-support-grid {
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     margin-top: 14px;
 }
 
 .meta-support-tile {
-    min-height: 112px;
+    min-height: 108px;
 }
 
 .alert {
@@ -1439,6 +1441,8 @@ select:focus {
     min-height: 100%;
     display: grid;
     align-content: start;
+    padding-left: 22px;
+    padding-right: 22px;
 }
 
 .download-row {
@@ -1632,6 +1636,10 @@ select:focus {
 
     .hero-stats {
         grid-template-columns: 1fr;
+    }
+
+    .flow-steps {
+        gap: 14px;
     }
 }
 

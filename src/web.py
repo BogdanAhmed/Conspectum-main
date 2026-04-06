@@ -38,7 +38,7 @@ VALID_LANGUAGES = {"en", "ru"}
 
 TASK_STAGE_CONFIG = {
     "queued": {"label": "В очереди", "start": 2, "end": 4},
-    "starting": {"label": "Запуск обработки", "start": 4, "end": 8},
+    "starting": {"label": "Началась обработка", "start": 4, "end": 8},
     "prepare_url": {"label": "Подготовка URL", "start": 8, "end": 12},
     "download_audio": {"label": "Скачивание источника", "start": 12, "end": 18},
     "transcribing": {"label": "Распознавание аудио", "start": 18, "end": 38},
