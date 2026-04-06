@@ -61,7 +61,7 @@ os.makedirs(LOGS_DIR, exist_ok=True)
 
 app = FastAPI(
     title="Conspectum Web",
-    description="Beautiful web interface for audio to LaTeX/PDF summary",
+    description="Premium web interface for turning lecture audio into transcript, LaTeX, and PDF outputs.",
 )
 
 tasks: Dict[str, dict] = {}

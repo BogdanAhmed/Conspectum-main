@@ -1,0 +1,1 @@
+We consider the cases of tau of k sub two is less than zero and tau of k sub two is greater than zero separately.

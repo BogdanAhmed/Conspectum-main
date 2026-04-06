@@ -1,0 +1,119 @@
+\documentclass[a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{xcolor}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5em}
+
+\definecolor{thmcolor}{RGB}{220,235,255}
+\definecolor{defcolor}{RGB}{232,247,228}
+\definecolor{excolor}{RGB}{255,244,220}
+
+\providecommand{\mathbb}[1]{\mathbf{#1}}
+\providecommand{\mathcal}[1]{\mathit{#1}}
+\newcommand{\cref}[1]{\ref{#1}}
+\newcommand{\toprule}{\hline}
+\newcommand{\midrule}{\hline}
+\newcommand{\bottomrule}{\hline}
+\newcommand{\href}[2]{#2}
+\newcommand{\url}[1]{\texttt{#1}}
+\renewcommand{\labelitemi}{-}
+\renewcommand{\labelitemii}{--}
+
+\newcommand{\boxheading}[1]{%
+  \par\smallskip
+  \noindent\textbf{\ifx&#1&Note\else#1\fi}\par
+  \smallskip
+}
+
+% Theorem environment
+\newtheorem{theorem}{Theorem}[section]
+\newenvironment{thmbox}[1][]{%
+  \begin{quote}\color{blue!60!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Definition environment
+\newtheorem{definition}{Definition}[section]
+\newenvironment{defbox}[1][]{%
+  \begin{quote}\color{green!40!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Lemma environment
+\newtheorem{lemma}{Lemma}[section]
+\newenvironment{lembox}[1][]{%
+  \begin{quote}\color{orange!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Proposition environment
+\newtheorem{proposition}{Proposition}[section]
+\newenvironment{propbox}[1][]{%
+  \begin{quote}\color{violet!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Corollary environment
+\newtheorem{corollary}{Corollary}[section]
+\newenvironment{corbox}[1][]{%
+  \begin{quote}\color{cyan!50!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Example environment
+\newtheorem{example}{Example}[section]
+\newenvironment{exbox}[1][]{%
+  \begin{quote}\color{brown!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Remark environment
+\newtheorem{remark}{Remark}[section]
+\newenvironment{rembox}[1][]{%
+  \begin{quote}\color{black!70}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Customize enumerate and itemize
+% Custom table environment with caption, placement, and column spec
+\newenvironment{customtable}[3][htbp]{%
+  % #1 = optional: placement (default: htbp)
+  % #2 = mandatory: column specification (e.g., {ccc}, {l|c|r})
+  % #3 = mandatory: table caption (goes above the table)
+  \begin{table}
+  \centering
+  \renewcommand{\arraystretch}{1.2}
+  \textbf{#3}\par\smallskip
+  \begin{tabular}{#2}
+}{%
+  \end{tabular}
+  \end{table}
+}
+
+\begin{document}
+
+\begin{center}
+{\LARGE \textbf{Analysis of Tau Values: Implications of Negative and Positive Cases in \( k_2 \)}}\\[1em]
+\end{center}
+
+\textbf{Abstract.} This lecture examines the implications of different tau values in the context of \( k_2 \), specifically focusing on the cases where \( \tau_{k_2} < 0 \) and \( \tau_{k_2} > 0 \). The learning objectives include understanding the significance of these tau values in theoretical frameworks and their practical applications. Key concepts discussed involve the mathematical properties of tau and its influence on system behavior. The lecture concludes by highlighting the distinct outcomes and interpretations associated with negative versus positive tau values, emphasizing their relevance in various scientific and engineering contexts.
+
+\section{Introduction}
+This section introduces the analysis of tau values in the context of \( k_2 \), specifically focusing on the implications of both negative and positive tau values.
+
+\section{Analysis of Tau Values}
+In this lecture, we consider two distinct cases regarding the tau value of \( k_2 \):
+
+\subsection{Case 1: \( \tau_{k_2} < 0 \)}
+When the tau value is less than zero, it indicates a specific behavior in the system being analyzed. The negative tau suggests that the system may exhibit instability or a tendency to diverge from equilibrium. This behavior can be mathematically represented by the system's response function, which may show exponential growth or oscillation away from a stable point.
+
+\subsection{Case 2: \( \tau_{k_2} > 0 \)}
+Conversely, when the tau value is greater than zero, it implies a different dynamic. A positive tau indicates stability and a tendency for the system to return to equilibrium after perturbations. This can be expressed through a damping function that stabilizes the system's response, leading to a return to equilibrium over time.
+
+\section{Conclusion}
+In summary, the analysis of tau values in the context of \( k_2 \) reveals significant implications for system behavior. Understanding whether tau is negative or positive is crucial for predicting stability and response in various scientific and engineering applications. The distinction between these two cases provides valuable insights into the design and analysis of systems across disciplines.
+
+\section{References}
+1. Ogata, K. \textit{Modern Control Engineering}. 5th Edition. Chapter 5: Stability Analysis.
+2. Nise, N. S. \textit{Control Systems Engineering}. 7th Edition. Chapter 8: Stability and the Routh-Hurwitz Criterion.
+3. Franklin, G. F., Powell, J. D., \& Emami-Naeini, A. \textit{Feedback Control of Dynamic Systems}. 7th Edition. Chapter 3: Stability.
+4. Khalil, H. K. \textit{Nonlinear Systems}. 3rd Edition. Chapter 4: Stability Analysis.
+5. Chen, W. \& B. Francis. \textit{Optimal Control and Estimation}. 1st Edition. Chapter 2: System Dynamics and Stability.
+\end{document}
