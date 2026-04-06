@@ -144,7 +144,7 @@ CYRILLIC_TO_ASCII = {
     "\u044f": "ya",
 }
 
-_PDFLATEX_BASE_COMMAND: typing.Optional[list[str]] = None
+_LATEX_BASE_COMMANDS: dict[str, list[str]] = {}
 _PDF_FALLBACK_FONT_NAME: typing.Optional[str] = None
 
 
@@ -212,14 +212,22 @@ def localize_template(tex_template: str, language: str) -> str:
     return tex_template
 
 
-def get_pdflatex_base_command() -> list[str]:
-    global _PDFLATEX_BASE_COMMAND
+def latex_engine_available(engine: str) -> bool:
+    return shutil.which(engine) is not None
 
-    if _PDFLATEX_BASE_COMMAND is None:
-        command = ["pdflatex"]
+
+def any_latex_engine_available() -> bool:
+    return any(
+        latex_engine_available(engine) for engine in ("pdflatex", "xelatex", "lualatex")
+    )
+
+
+def get_latex_base_command(engine: str = "pdflatex") -> list[str]:
+    if engine not in _LATEX_BASE_COMMANDS:
+        command = [engine]
         try:
             version = subprocess.run(
-                ["pdflatex", "--version"],
+                [engine, "--version"],
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
@@ -231,9 +239,9 @@ def get_pdflatex_base_command() -> list[str]:
         except Exception:
             pass
 
-        _PDFLATEX_BASE_COMMAND = command
+        _LATEX_BASE_COMMANDS[engine] = command
 
-    return list(_PDFLATEX_BASE_COMMAND)
+    return list(_LATEX_BASE_COMMANDS[engine])
 
 
 def contains_non_ascii_characters(text: str) -> bool:
@@ -258,6 +266,124 @@ def make_ascii_safe_latex(latex_content: str) -> str:
     return "".join(converted)
 
 
+def make_unicode_engine_latex(latex_content: str, language: str) -> str:
+    polyglossia_language = "russian" if language == "ru" else "english"
+    other_language = "english" if language == "ru" else "russian"
+    unicode_setup = "\n".join(
+        [
+            r"\usepackage{fontspec}",
+            r"\usepackage{polyglossia}",
+            fr"\setmainlanguage{{{polyglossia_language}}}",
+            fr"\setotherlanguage{{{other_language}}}",
+            r"\defaultfontfeatures{Ligatures=TeX}",
+            r"\IfFontExistsTF{Times New Roman}{\setmainfont{Times New Roman}}{%",
+            r"  \IfFontExistsTF{Georgia}{\setmainfont{Georgia}}{%",
+            r"    \IfFontExistsTF{Arial}{\setmainfont{Arial}}{%",
+            r"      \IfFontExistsTF{DejaVu Serif}{\setmainfont{DejaVu Serif}}{%",
+            r"        \IfFontExistsTF{Liberation Serif}{\setmainfont{Liberation Serif}}{%",
+            r"          \setmainfont{Latin Modern Roman}%",
+            r"        }%",
+            r"      }%",
+            r"    }%",
+            r"  }%",
+            r"}",
+        ]
+    )
+
+    unicode_ready = re.sub(
+        r"\\usepackage\[[^\]]*\]\{inputenc\}\s*",
+        lambda _match: unicode_setup + "\n",
+        latex_content,
+        count=1,
+    )
+    unicode_ready = re.sub(r"\\usepackage\[[^\]]*\]\{fontenc\}\s*", "", unicode_ready)
+    unicode_ready = re.sub(r"\\usepackage\[[^\]]*\]\{babel\}\s*", "", unicode_ready)
+
+    if r"\usepackage{fontspec}" in unicode_ready:
+        return unicode_ready
+
+    documentclass_match = re.search(
+        r"(\\documentclass(?:\[[^\]]*\])?\{[^{}]+\})",
+        unicode_ready,
+    )
+    if documentclass_match:
+        insert_at = documentclass_match.end()
+        return (
+            unicode_ready[:insert_at]
+            + "\n\n"
+            + unicode_setup
+            + "\n"
+            + unicode_ready[insert_at:]
+        )
+
+    return unicode_setup + "\n" + unicode_ready
+
+
+def simplify_latex_math(math_content: str) -> str:
+    simplified = math_content
+
+    while True:
+        previous = simplified
+        simplified = re.sub(
+            r"\\(?:text|textbf|textit|mathrm|mathbf|mathit|operatorname|emph)\{([^{}]*)\}",
+            r"\1",
+            simplified,
+        )
+        simplified = re.sub(r"\\frac\{([^{}]*)\}\{([^{}]*)\}", r"(\1) / (\2)", simplified)
+        simplified = re.sub(
+            r"\\sqrt(?:\[[^\]]*\])?\{([^{}]*)\}",
+            r"sqrt(\1)",
+            simplified,
+        )
+        if simplified == previous:
+            break
+
+    replacements = {
+        r"\cdot": "*",
+        r"\times": "x",
+        r"\to": "->",
+        r"\rightarrow": "->",
+        r"\leftarrow": "<-",
+        r"\Rightarrow": "=>",
+        r"\Leftarrow": "<=",
+        r"\neq": "!=",
+        r"\leq": "<=",
+        r"\geq": ">=",
+        r"\approx": "~",
+        r"\pm": "+/-",
+        r"\mp": "-/+",
+        r"\infty": "infinity",
+        r"\sum": "sum",
+        r"\prod": "prod",
+        r"\int": "int",
+        r"\log": "log",
+        r"\ln": "ln",
+        r"\sin": "sin",
+        r"\cos": "cos",
+        r"\tan": "tan",
+        r"\ldots": "...",
+        r"\dots": "...",
+        r"\quad": " ",
+        r"\qquad": " ",
+        r"\left": "",
+        r"\right": "",
+        r"\,": " ",
+        r"\;": " ",
+        r"\:": " ",
+        r"\!": "",
+    }
+    for source, replacement in replacements.items():
+        simplified = simplified.replace(source, replacement)
+
+    simplified = re.sub(r"\\(?:label|ref|cref|eqref|cite)\{[^{}]*\}", "", simplified)
+    simplified = re.sub(r"\\[a-zA-Z]+\*?(?:\[[^\]]*\])?", "", simplified)
+    simplified = simplified.replace(r"\{", "{")
+    simplified = simplified.replace(r"\}", "}")
+    simplified = re.sub(r"[{}]", "", simplified)
+    simplified = re.sub(r"\s+", " ", simplified)
+    return simplified.strip()
+
+
 def latex_to_readable_text(latex_content: str) -> str:
     document_match = re.search(
         r"\\begin\{document\}(.*?)\\end\{document\}",
@@ -267,33 +393,88 @@ def latex_to_readable_text(latex_content: str) -> str:
     text = document_match.group(1) if document_match else latex_content
 
     text = re.sub(r"(?<!\\)%.*", "", text)
-    text = text.replace(r"\[", "\n")
-    text = text.replace(r"\]", "\n")
-    text = text.replace(r"\(", "")
-    text = text.replace(r"\)", "")
-    text = text.replace(r"\\", "\n")
+    text = re.sub(
+        r"\\begin\{center\}(.*?)\\end\{center\}",
+        lambda match: "\n" + match.group(1) + "\n",
+        text,
+        flags=re.DOTALL,
+    )
+    text = re.sub(
+        r"(?<!\\)\\\[(.*?)\\\]",
+        lambda match: f"\n{simplify_latex_math(match.group(1))}\n",
+        text,
+        flags=re.DOTALL,
+    )
+    text = re.sub(
+        r"\\\((.*?)\\\)",
+        lambda match: simplify_latex_math(match.group(1)),
+        text,
+        flags=re.DOTALL,
+    )
+    text = re.sub(
+        r"\$(.+?)\$",
+        lambda match: simplify_latex_math(match.group(1)),
+        text,
+        flags=re.DOTALL,
+    )
+    text = re.sub(r"\\\\(?:\[[^\]]*\])?", "\n", text)
     text = text.replace(r"\par", "\n")
     text = re.sub(r"\\item\b", "\n- ", text)
 
-    for command in ("section", "subsection", "subsubsection"):
+    heading_prefixes = {
+        "section": "## ",
+        "subsection": "### ",
+        "subsubsection": "#### ",
+    }
+    for command, prefix in heading_prefixes.items():
         text = re.sub(
             rf"\\{command}\*?\{{([^{{}}]*)\}}",
-            r"\n\n\1\n",
+            rf"\n\n{prefix}\1\n",
             text,
         )
+
+    for environment in (
+        "equation",
+        "equation*",
+        "align",
+        "align*",
+        "gather",
+        "gather*",
+        "multline",
+        "multline*",
+        "displaymath",
+    ):
+        text = re.sub(rf"\\begin\{{{environment}\}}", "\n", text)
+        text = re.sub(rf"\\end\{{{environment}\}}", "\n", text)
 
     for environment in ("enumerate", "itemize", "quote", "center", "customtable", "table", "tabular"):
         text = re.sub(rf"\\begin\{{{environment}\}}(\[[^\]]*\])?(\{{[^{{}}]*\}})*", "\n", text)
         text = re.sub(rf"\\end\{{{environment}\}}", "\n", text)
 
-    for environment in ("thmbox", "defbox", "lembox", "propbox", "corbox", "exbox", "rembox"):
-        text = re.sub(rf"\\begin\{{{environment}\}}(?:\[([^\]]*)\])?", lambda m: f"\n\n{m.group(1) or ''}\n", text)
+    box_defaults = {
+        "thmbox": "Теорема",
+        "defbox": "Определение",
+        "lembox": "Лемма",
+        "propbox": "Утверждение",
+        "corbox": "Следствие",
+        "exbox": "Пример",
+        "rembox": "Замечание",
+    }
+    for environment, fallback_title in box_defaults.items():
+        text = re.sub(
+            rf"\\begin\{{{environment}\}}(?:\[([^\]]*)\])?",
+            lambda match: f"\n\n> {match.group(1) or fallback_title}\n",
+            text,
+        )
         text = re.sub(rf"\\end\{{{environment}\}}", "\n", text)
+
+    text = re.sub(r"\\href\{[^{}]*\}\{([^{}]*)\}", r"\1", text)
+    text = re.sub(r"\\(?:label|ref|cref|eqref|cite)\{[^{}]*\}", "", text)
 
     while True:
         previous = text
         text = re.sub(
-            r"\\(?:textbf|textit|texttt|textsf|textrm|emph|underline|mathrm|mathbf|mathit|operatorname|boxed|url)\{([^{}]*)\}",
+            r"\\(?:text|textbf|textit|texttt|textsf|textrm|emph|underline|mathrm|mathbf|mathit|operatorname|boxed|url)\{([^{}]*)\}",
             r"\1",
             text,
         )
@@ -312,9 +493,18 @@ def latex_to_readable_text(latex_content: str) -> str:
     for source, replacement in replacements.items():
         text = text.replace(source, replacement)
 
+    text = re.sub(
+        r"\b(?:thmbox|defbox|lembox|propbox|corbox|exbox|rembox)\[([^\]]*)\]",
+        r"\n\n> \1\n",
+        text,
+    )
+    text = re.sub(r"(?m)^\s*1em\]\s*", "", text)
+    text = text.replace("&", " | ")
     text = re.sub(r"\\begin\{[^{}]+\}", "\n", text)
     text = re.sub(r"\\end\{[^{}]+\}", "\n", text)
     text = re.sub(r"\\[a-zA-Z]+\*?(?:\[[^\]]*\])?", "", text)
+    text = re.sub(r"\\.", "", text)
+    text = re.sub(r"(?m)^\s*(?:center|itemize|enumerate|quote|tabular|table)\s*$", "", text)
     text = re.sub(r"[{}]", "", text)
     text = re.sub(r"\n[ \t]+", "\n", text)
     text = re.sub(r"[ \t]{2,}", " ", text)
@@ -393,21 +583,56 @@ def text_to_pdf_bytes(text: str, title: str | None = None) -> bytes:
             y -= 24
         y -= 8
 
-    pdf.setFont(body_font, body_font_size)
-    for paragraph in text.splitlines():
-        if not paragraph.strip():
+    def draw_paragraph(
+        paragraph: str,
+        *,
+        font_size: int = body_font_size,
+        indent: int = 0,
+        gap_after: int = 4,
+    ) -> None:
+        nonlocal y
+
+        wrapped_lines = simpleSplit(
+            paragraph,
+            body_font,
+            font_size,
+            max_width - indent,
+        ) or [paragraph]
+
+        pdf.setFont(body_font, font_size)
+        for line in wrapped_lines:
+            if y < bottom_margin + line_height:
+                new_page()
+                pdf.setFont(body_font, font_size)
+            pdf.drawString(left_margin + indent, y, line)
+            y -= max(line_height, font_size + 3)
+        y -= gap_after
+
+    for raw_line in text.splitlines():
+        paragraph = raw_line.strip()
+        if not paragraph:
             y -= 8
             if y < bottom_margin + line_height:
                 new_page()
             continue
 
-        wrapped_lines = simpleSplit(paragraph, body_font, body_font_size, max_width) or [paragraph]
-        for line in wrapped_lines:
-            if y < bottom_margin + line_height:
-                new_page()
-            pdf.drawString(left_margin, y, line)
-            y -= line_height
-        y -= 4
+        if paragraph.startswith("## "):
+            draw_paragraph(paragraph[3:].strip(), font_size=16, gap_after=8)
+            continue
+        if paragraph.startswith("### "):
+            draw_paragraph(paragraph[4:].strip(), font_size=14, gap_after=6)
+            continue
+        if paragraph.startswith("#### "):
+            draw_paragraph(paragraph[5:].strip(), font_size=12, gap_after=4)
+            continue
+        if paragraph.startswith("> "):
+            draw_paragraph(paragraph[2:].strip(), font_size=12, indent=10, gap_after=4)
+            continue
+        if paragraph.startswith("- "):
+            draw_paragraph(paragraph, indent=12, gap_after=2)
+            continue
+
+        draw_paragraph(paragraph)
 
     pdf.save()
     return buffer.getvalue()
@@ -418,7 +643,7 @@ def latex_to_fallback_pdf(latex_content: str, title: str | None = None) -> bytes
     return text_to_pdf_bytes(readable_text, title=title)
 
 
-def latex_to_pdf(latex_content: str) -> bytes:
+def latex_to_pdf(latex_content: str, engine: str = "pdflatex") -> bytes:
     with tempfile.TemporaryDirectory() as temp_dir:
         tex_path = os.path.join(temp_dir, "file.tex")
         pdf_path = os.path.join(temp_dir, "file.pdf")
@@ -428,7 +653,8 @@ def latex_to_pdf(latex_content: str) -> bytes:
 
         # Первый прогон pdflatex
         result_1 = subprocess.run(
-            get_pdflatex_base_command() + ["-halt-on-error", "-interaction=nonstopmode", "-file-line-error", "file.tex"],
+            get_latex_base_command(engine)
+            + ["-halt-on-error", "-interaction=nonstopmode", "-file-line-error", "file.tex"],
             cwd=temp_dir,
             capture_output=True,
             text=True,
@@ -441,7 +667,8 @@ def latex_to_pdf(latex_content: str) -> bytes:
             raise RuntimeError(format_latex_error(result_1))
 
         result_2 = subprocess.run(
-            get_pdflatex_base_command() + ["-halt-on-error", "-interaction=nonstopmode", "-file-line-error", "file.tex"],
+            get_latex_base_command(engine)
+            + ["-halt-on-error", "-interaction=nonstopmode", "-file-line-error", "file.tex"],
             cwd=temp_dir,
             capture_output=True,
             text=True,
@@ -669,6 +896,7 @@ async def process(
             f"Unsupported detail level: {detail_level}. Must be one of {', '.join(DETAIL_LEVEL_GUIDANCE)}."
         )
 
+    await logger.stage("starting", 40)
     await logger.partial_result("Starting transcription...")
     transcript = await transcribe_audio(
         audio_file,
@@ -678,7 +906,9 @@ async def process(
     )
 
     if language is None:
+        await logger.stage("detect_language", 20)
         language = await detect_language_from_text(transcript, ai)
+        await logger.stage("detect_language", 100)
         await logger.partial_result(f"Detected language: {language}")
 
     summary = await make_summary_from_transcript(
@@ -703,6 +933,7 @@ async def process(
     await logger.file("tex_template", tex_template, Logger.FileType.TEX)
 
     chunks = await split_into_chunks(transcript, logger)
+    await logger.stage("sections", 0)
     await logger.progress(2, 2 + len(chunks))
 
     results = []
@@ -735,15 +966,18 @@ async def process(
         validate_complete_latex(tex_postprocessed)
         await logger.file("lecture", tex_postprocessed, Logger.FileType.TEX)
     except Exception as e:
+        await logger.stage("postprocess", 100)
         await logger.partial_result(
             f"Postprocessing failed: {e}. Continuing with original version..."
         )
         tex_postprocessed = tex
         await logger.file("lecture", tex, Logger.FileType.TEX)
 
-    if shutil.which("pdflatex") is None:
+    if not any_latex_engine_available():
+        await logger.stage("tex_only", 100)
         warning_message = (
-            "PDF generation skipped: pdflatex is not installed or not found in PATH. Returning only .tex file."
+            "PDF generation skipped: no LaTeX engine (pdflatex, xelatex, or lualatex) was found in PATH. "
+            "Returning only .tex file."
         )
         await logger.partial_result(warning_message)
         return ProcessResult(
@@ -756,107 +990,156 @@ async def process(
             pdf_warning=warning_message,
         )
 
-    try:
-        pdf = latex_to_pdf(tex_postprocessed)
-        await logger.file("lecture", pdf, Logger.FileType.PDF)
-        return ProcessResult(
-            transcript=transcript,
-            language=language,
-            title=summary.title,
-            abstract=summary.abstract,
-            tex=tex_postprocessed,
-            pdf=pdf,
-        )
-    except Exception as e:
-        error_msg = f"Failed to convert LaTeX to PDF: {e}"
-        await logger.partial_result(error_msg)
-        fallback_tex = repair_latex_document(tex)
-        pdf_source_tex = tex_postprocessed
+    pdf_source_tex = tex_postprocessed
+    error_msg: str | None = None
 
-        if fallback_tex != tex_postprocessed:
-            try:
-                await logger.partial_result(
-                    "Retrying PDF generation with a safer LaTeX cleanup pass..."
-                )
-                pdf = latex_to_pdf(fallback_tex)
-                await logger.file("lecture_retry", fallback_tex, Logger.FileType.TEX)
-                await logger.file("lecture_retry", pdf, Logger.FileType.PDF)
-                return ProcessResult(
-                    transcript=transcript,
-                    language=language,
-                    title=summary.title,
-                    abstract=summary.abstract,
-                    tex=fallback_tex,
-                    pdf=pdf,
-                )
-            except Exception as retry_error:
-                error_msg = f"Retry after cleanup also failed: {retry_error}"
-                await logger.partial_result(error_msg)
-                pdf_source_tex = fallback_tex
-
-        fallback_warning = (
-            "PDF was generated with a simplified Unicode-safe fallback because LaTeX compilation failed. "
-            "The original UTF-8 TEX file is still available."
-        )
+    if latex_engine_available("pdflatex"):
         try:
-            await logger.partial_result(
-                "Retrying PDF generation with a simplified Unicode-safe fallback..."
-            )
-            pdf = latex_to_fallback_pdf(pdf_source_tex, title=summary.title)
-            await logger.file("lecture_fallback", pdf, Logger.FileType.PDF)
-            await logger.partial_result(fallback_warning)
+            await logger.stage("pdf", 15)
+            pdf = latex_to_pdf(tex_postprocessed)
+            await logger.stage("pdf", 100)
+            await logger.file("lecture", pdf, Logger.FileType.PDF)
             return ProcessResult(
                 transcript=transcript,
                 language=language,
                 title=summary.title,
                 abstract=summary.abstract,
-                tex=pdf_source_tex,
+                tex=tex_postprocessed,
                 pdf=pdf,
-                pdf_warning=fallback_warning,
             )
-        except Exception as fallback_pdf_error:
-            error_msg = f"Unicode-safe PDF fallback also failed: {fallback_pdf_error}"
+        except Exception as e:
+            error_msg = f"Failed to convert LaTeX to PDF: {e}"
             await logger.partial_result(error_msg)
+            fallback_tex = repair_latex_document(tex)
 
-        if contains_non_ascii_characters(pdf_source_tex):
-            ascii_fallback_tex = make_ascii_safe_latex(pdf_source_tex)
-            if ascii_fallback_tex != pdf_source_tex:
-                transliteration_warning = (
-                    "PDF was generated with an ASCII/transliterated fallback because the local "
-                    "LaTeX installation cannot typeset this document's Unicode characters. "
-                    "The original UTF-8 TEX file is still available."
-                )
+            if fallback_tex != tex_postprocessed:
                 try:
+                    await logger.stage("pdf_retry", 30)
                     await logger.partial_result(
-                        "Retrying PDF generation with an ASCII-safe transliteration fallback..."
+                        "Retrying PDF generation with a safer LaTeX cleanup pass..."
                     )
-                    pdf = latex_to_pdf(ascii_fallback_tex)
-                    await logger.file(
-                        "lecture_ascii_fallback",
-                        ascii_fallback_tex,
-                        Logger.FileType.TEX,
-                    )
-                    await logger.file("lecture", pdf, Logger.FileType.PDF)
-                    await logger.partial_result(transliteration_warning)
+                    pdf = latex_to_pdf(fallback_tex)
+                    await logger.stage("pdf_retry", 100)
+                    await logger.file("lecture_retry", fallback_tex, Logger.FileType.TEX)
+                    await logger.file("lecture_retry", pdf, Logger.FileType.PDF)
                     return ProcessResult(
                         transcript=transcript,
                         language=language,
                         title=summary.title,
                         abstract=summary.abstract,
-                        tex=pdf_source_tex,
+                        tex=fallback_tex,
                         pdf=pdf,
-                        pdf_warning=transliteration_warning,
                     )
-                except Exception as ascii_retry_error:
-                    error_msg = f"ASCII-safe PDF retry also failed: {ascii_retry_error}"
+                except Exception as retry_error:
+                    error_msg = f"Retry after cleanup also failed: {retry_error}"
                     await logger.partial_result(error_msg)
+                    pdf_source_tex = fallback_tex
+    else:
+        error_msg = (
+            "PDF generation via pdflatex skipped: pdflatex is not installed or not found in PATH."
+        )
+        await logger.partial_result(error_msg)
+        fallback_tex = repair_latex_document(tex)
+        if fallback_tex != tex_postprocessed:
+            pdf_source_tex = fallback_tex
 
+    if contains_non_ascii_characters(pdf_source_tex) or not latex_engine_available("pdflatex"):
+        for engine in ("xelatex", "lualatex"):
+            if not latex_engine_available(engine):
+                continue
+            try:
+                await logger.stage("pdf_retry", 55 if engine == "xelatex" else 70)
+                await logger.partial_result(
+                    f"Retrying PDF generation with {engine} Unicode support..."
+                )
+                unicode_tex = make_unicode_engine_latex(pdf_source_tex, language)
+                pdf = latex_to_pdf(unicode_tex, engine=engine)
+                await logger.stage("pdf_retry", 100)
+                await logger.file(
+                    f"lecture_{engine}_unicode",
+                    unicode_tex,
+                    Logger.FileType.TEX,
+                )
+                await logger.file("lecture", pdf, Logger.FileType.PDF)
+                return ProcessResult(
+                    transcript=transcript,
+                    language=language,
+                    title=summary.title,
+                    abstract=summary.abstract,
+                    tex=pdf_source_tex,
+                    pdf=pdf,
+                )
+            except Exception as unicode_retry_error:
+                error_msg = f"{engine} Unicode PDF retry also failed: {unicode_retry_error}"
+                await logger.partial_result(error_msg)
+
+    fallback_warning = (
+        "PDF was generated in a readable fallback layout because LaTeX compilation failed. "
+        "The original UTF-8 TEX file is still available."
+    )
+    try:
+        await logger.stage("pdf_retry", 85)
+        await logger.partial_result(
+            "Retrying PDF generation with a readable fallback layout..."
+        )
+        pdf = latex_to_fallback_pdf(pdf_source_tex, title=summary.title)
+        await logger.stage("pdf_retry", 100)
+        await logger.file("lecture_fallback", pdf, Logger.FileType.PDF)
+        await logger.partial_result(fallback_warning)
         return ProcessResult(
             transcript=transcript,
             language=language,
             title=summary.title,
             abstract=summary.abstract,
             tex=pdf_source_tex,
-            pdf=None,
-            pdf_warning=error_msg,
+            pdf=pdf,
+            pdf_warning=fallback_warning,
         )
+    except Exception as fallback_pdf_error:
+        error_msg = f"Readable PDF fallback also failed: {fallback_pdf_error}"
+        await logger.partial_result(error_msg)
+
+    if contains_non_ascii_characters(pdf_source_tex):
+        ascii_fallback_tex = make_ascii_safe_latex(pdf_source_tex)
+        if ascii_fallback_tex != pdf_source_tex:
+            transliteration_warning = (
+                "PDF was generated with an ASCII/transliterated fallback because the local "
+                "LaTeX installation cannot typeset this document's Unicode characters. "
+                "The original UTF-8 TEX file is still available."
+            )
+            try:
+                await logger.stage("pdf_retry", 92)
+                await logger.partial_result(
+                    "Retrying PDF generation with an ASCII-safe transliteration fallback..."
+                )
+                pdf = latex_to_pdf(ascii_fallback_tex)
+                await logger.stage("pdf_retry", 100)
+                await logger.file(
+                    "lecture_ascii_fallback",
+                    ascii_fallback_tex,
+                    Logger.FileType.TEX,
+                )
+                await logger.file("lecture", pdf, Logger.FileType.PDF)
+                await logger.partial_result(transliteration_warning)
+                return ProcessResult(
+                    transcript=transcript,
+                    language=language,
+                    title=summary.title,
+                    abstract=summary.abstract,
+                    tex=pdf_source_tex,
+                    pdf=pdf,
+                    pdf_warning=transliteration_warning,
+                )
+            except Exception as ascii_retry_error:
+                error_msg = f"ASCII-safe PDF retry also failed: {ascii_retry_error}"
+                await logger.partial_result(error_msg)
+
+    return ProcessResult(
+        transcript=transcript,
+        language=language,
+        title=summary.title,
+        abstract=summary.abstract,
+        tex=pdf_source_tex,
+        pdf=None,
+        pdf_warning=error_msg,
+    )

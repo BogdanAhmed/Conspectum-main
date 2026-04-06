@@ -166,14 +166,26 @@ async def transcribe_audio(
         temp_path = temp_file.name
     
     try:
+        await logger.stage("transcribing", 0)
+
         # Transcribe
         segments, info = model.transcribe(temp_path, beam_size=5)
         
         # Collect all text
         transcript = ""
+        total_duration = float(getattr(info, "duration", 0) or 0)
+        last_reported_progress = -1
+
         for segment in segments:
             transcript += segment.text
-        
+            if total_duration > 0:
+                segment_end = float(getattr(segment, "end", 0) or 0)
+                percent = max(0, min(100, round(segment_end / total_duration * 100)))
+                if percent >= last_reported_progress + 3 or percent >= 100:
+                    await logger.progress(percent, 100)
+                    last_reported_progress = percent
+
+        await logger.stage("transcript_ready", 100)
         await logger.partial_result(f"🎤 <b>Transcription complete:</b> {len(transcript)} characters")
         await logger.file("transcript", transcript, Logger.FileType.TEXT)
         
@@ -221,6 +233,8 @@ async def make_summary_from_transcript(
         prompt = prompt_file.read()
     prompt = prompt.replace("<OUTPUT_LANGUAGE>", LANGUAGE_NAMES[language])
 
+    await logger.stage("summary", 10)
+
     response = await ai.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -241,7 +255,9 @@ async def make_summary_from_transcript(
 
     summary = parse_summary_response(response_text)
 
+    await logger.stage("summary", 70)
     await logger.partial_result(f"<b>The topic of the lecture:</b>\n{summary.title}")
+    await logger.stage("summary", 100)
     await logger.partial_result(f"<b>The abstract of the lecture:</b>\n{summary.abstract}")
     return summary
 
@@ -281,7 +297,8 @@ async def postprocess_summary(
         prompt = prompt_file.read()
     
     prompt = prompt.replace("<OUTPUT_LANGUAGE>", LANGUAGE_NAMES[language])
-    
+
+    await logger.stage("postprocess", 10)
     await logger.partial_result("🔍 <b>Starting postprocessing:</b> checking for errors and adding references...")
     
     # Use gpt-4.1 for higher quality postprocessing
@@ -309,6 +326,7 @@ async def postprocess_summary(
     missing_elements = [elem for elem in required_elements if elem not in enhanced_content]
     
     if missing_elements:
+        await logger.stage("postprocess", 100)
         await logger.partial_result(
             f"⚠️ <b>Postprocessing validation failed:</b> missing {', '.join(missing_elements)}. "
             f"Using original version."
@@ -317,6 +335,7 @@ async def postprocess_summary(
     
     # Check that document is not truncated
     if not enhanced_content.strip().endswith(r"\end{document}"):
+        await logger.stage("postprocess", 100)
         await logger.partial_result(
             "⚠️ <b>Postprocessing warning:</b> document appears truncated. "
             "Using original version."
@@ -324,6 +343,7 @@ async def postprocess_summary(
         return tex_content
     
     await logger.file("lecture_postprocessed", enhanced_content, Logger.FileType.TEX)
+    await logger.stage("postprocess", 100)
     await logger.partial_result("✅ <b>Postprocessing complete:</b> errors corrected and references added")
     
     return enhanced_content

@@ -1,18 +1,25 @@
 import asyncio
+import ipaddress
+import io
+import json
 import os
+import re
 import ssl
 import uuid
+import zipfile
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
+from urllib.parse import unquote, urlparse
 
 import httpx
 import openai
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 
 from conspectum.logger import Logger
 from conspectum.process import process
+from conspectum.summary import guess_audio_suffix
 from conspectum.summary import is_supported_audio
 
 
@@ -21,6 +28,33 @@ load_dotenv()
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 LOGS_DIR = os.path.join(BASE_DIR, "logs")
+TEMPLATE_PATH = os.path.join(BASE_DIR, "src", "web_template.html")
+REMOTE_AUDIO_MAX_BYTES = int(
+    os.environ.get("REMOTE_AUDIO_MAX_BYTES", str(512 * 1024 * 1024))
+)
+
+VALID_DETAIL_LEVELS = {"brief", "standard", "detailed"}
+VALID_LANGUAGES = {"en", "ru"}
+
+TASK_STAGE_CONFIG = {
+    "queued": {"label": "В очереди", "start": 2, "end": 4},
+    "starting": {"label": "Запуск обработки", "start": 4, "end": 8},
+    "prepare_url": {"label": "Подготовка URL", "start": 8, "end": 12},
+    "download_audio": {"label": "Скачивание источника", "start": 12, "end": 18},
+    "transcribing": {"label": "Распознавание аудио", "start": 18, "end": 38},
+    "transcript_ready": {"label": "Транскрипт готов", "start": 38, "end": 42},
+    "detect_language": {"label": "Определение языка", "start": 42, "end": 48},
+    "summary": {"label": "Сборка конспекта", "start": 48, "end": 60},
+    "sections": {"label": "Сборка разделов", "start": 60, "end": 80},
+    "postprocess": {"label": "Постобработка", "start": 80, "end": 90},
+    "pdf": {"label": "Сборка PDF", "start": 90, "end": 96},
+    "pdf_retry": {"label": "Повторная сборка PDF", "start": 94, "end": 98},
+    "pdf_problem": {"label": "Проблема с PDF", "start": 92, "end": 96},
+    "tex_only": {"label": "Только TEX", "start": 97, "end": 99},
+    "done": {"label": "Готово", "start": 100, "end": 100},
+    "error": {"label": "Ошибка", "start": 0, "end": 0},
+}
+DEFAULT_STAGE_CODE = "queued"
 
 os.makedirs(STATIC_DIR, exist_ok=True)
 os.makedirs(LOGS_DIR, exist_ok=True)
@@ -33,7 +67,11 @@ app = FastAPI(
 tasks: Dict[str, dict] = {}
 TASK_TTL = timedelta(hours=1)
 
-allow_insecure_ssl = os.environ.get("ALLOW_INSECURE_SSL", "").lower() in {"1", "true", "yes"}
+allow_insecure_ssl = os.environ.get("ALLOW_INSECURE_SSL", "").lower() in {
+    "1",
+    "true",
+    "yes",
+}
 verify: bool | ssl.SSLContext = True
 if allow_insecure_ssl:
     ssl_context = ssl.create_default_context()
@@ -56,6 +94,7 @@ ai = openai.AsyncOpenAI(
 class WebLogger(Logger):
     def __init__(self, task_id: str):
         self.task_id = task_id
+        self.last_progress_bucket: Optional[int] = None
 
         log_id = str(uuid.uuid4())
         log_dir = os.path.join(LOGS_DIR, log_id)
@@ -66,10 +105,16 @@ class WebLogger(Logger):
         self.messages: List[str] = []
         tasks[self.task_id]["messages"] = self.messages
         tasks[self.task_id]["progress"] = 0
+        set_task_stage(self.task_id, "starting", 0, force=True)
 
     async def partial_result(self, text: str):
         self.messages.append(text)
         tasks[self.task_id]["messages"] = self.messages
+        inferred_stage = infer_stage_update_from_message(text)
+        if inferred_stage is not None:
+            stage_code, stage_progress = inferred_stage
+            set_task_stage(self.task_id, stage_code, stage_progress)
+        tasks[self.task_id]["updated_at"] = datetime.now(timezone.utc)
 
     async def progress(self, completed: int, total: int):
         if total <= 0:
@@ -77,10 +122,20 @@ class WebLogger(Logger):
         else:
             percent = round(completed / total * 100)
 
-        progress_text = f"Progress: {percent}%"
-        self.messages.append(progress_text)
-        tasks[self.task_id]["messages"] = self.messages
-        tasks[self.task_id]["progress"] = percent
+        stage_code = tasks[self.task_id].get("stage_code") or "sections"
+        set_task_stage(self.task_id, stage_code, percent)
+
+        bucket = 100 if percent >= 100 else max(0, min(95, percent)) // 5
+        if bucket != self.last_progress_bucket:
+            progress_text = f"Progress: {percent}%"
+            self.messages.append(progress_text)
+            tasks[self.task_id]["messages"] = self.messages
+            self.last_progress_bucket = bucket
+
+        tasks[self.task_id]["updated_at"] = datetime.now(timezone.utc)
+
+    async def stage(self, stage: str, progress: Optional[int] = None):
+        set_task_stage(self.task_id, stage, progress)
 
 
 def cleanup_expired_tasks() -> None:
@@ -102,6 +157,334 @@ def cleanup_expired_tasks() -> None:
                     pass
 
 
+def normalize_detail_value(detail: Optional[str]) -> str:
+    normalized = (detail or "standard").strip().lower()
+    if normalized not in VALID_DETAIL_LEVELS:
+        raise HTTPException(
+            status_code=400,
+            detail="Detail must be one of: brief, standard, detailed.",
+        )
+    return normalized
+
+
+def normalize_language_value(language: Optional[str]) -> Optional[str]:
+    if language is None or not language.strip():
+        return None
+
+    normalized = language.strip().lower()
+    if normalized not in VALID_LANGUAGES:
+        raise HTTPException(status_code=400, detail="Language must be en or ru.")
+    return normalized
+
+
+def create_task_state(
+    task_id: str,
+    detail: str,
+    *,
+    source_mode: str,
+    source_name: Optional[str] = None,
+    source_url: Optional[str] = None,
+    audio_size_bytes: Optional[int] = None,
+) -> dict:
+    created_at = datetime.now(timezone.utc)
+    return {
+        "task_id": task_id,
+        "status": "running",
+        "messages": [],
+        "progress": 0,
+        "stage_code": DEFAULT_STAGE_CODE,
+        "stage": TASK_STAGE_CONFIG[DEFAULT_STAGE_CODE]["label"],
+        "bundle_url": None,
+        "tex_url": None,
+        "pdf_url": None,
+        "transcript_url": None,
+        "tex_path": None,
+        "pdf_path": None,
+        "transcript_path": None,
+        "title": None,
+        "language": None,
+        "detail": detail,
+        "error": None,
+        "warning": None,
+        "source_mode": source_mode,
+        "source_name": source_name,
+        "source_url": source_url,
+        "audio_size_bytes": audio_size_bytes,
+        "abstract": None,
+        "transcript_preview": None,
+        "transcript_words": None,
+        "abstract_words": None,
+        "created_at": created_at,
+        "updated_at": created_at,
+        "completed_at": None,
+        "duration_seconds": None,
+    }
+
+
+def make_preview(text: Optional[str], limit: int = 1800) -> Optional[str]:
+    if text is None:
+        return None
+
+    normalized = text.strip()
+    if len(normalized) <= limit:
+        return normalized
+
+    shortened = normalized[:limit].rsplit(" ", 1)[0].rstrip()
+    return (shortened or normalized[:limit]).rstrip() + "..."
+
+
+def count_words(text: Optional[str]) -> int:
+    return len((text or "").split())
+
+
+def safe_download_name(text: Optional[str], fallback: str) -> str:
+    normalized = re.sub(r"[^A-Za-z0-9._-]+", "-", (text or "").strip()).strip("-._")
+    return normalized[:80] or fallback
+
+
+def get_stage_config(stage_code: Optional[str]) -> dict:
+    return TASK_STAGE_CONFIG.get(stage_code or DEFAULT_STAGE_CODE, TASK_STAGE_CONFIG[DEFAULT_STAGE_CODE])
+
+
+def map_stage_progress(stage_code: Optional[str], stage_progress: Optional[int] = None) -> int:
+    config = get_stage_config(stage_code)
+    start = int(config["start"])
+    end = int(config["end"])
+
+    if stage_progress is None:
+        return start
+
+    safe_progress = max(0, min(100, int(stage_progress)))
+    return start + round((end - start) * (safe_progress / 100))
+
+
+def set_task_stage(
+    task_id: str,
+    stage_code: str,
+    stage_progress: Optional[int] = None,
+    *,
+    force: bool = False,
+) -> None:
+    task = tasks.get(task_id)
+    if not task:
+        return
+
+    current_stage_code = task.get("stage_code") or DEFAULT_STAGE_CODE
+    current_config = get_stage_config(current_stage_code)
+    new_config = get_stage_config(stage_code)
+
+    if force or stage_code == current_stage_code or int(new_config["start"]) >= int(current_config["start"]):
+        task["stage_code"] = stage_code
+        task["stage"] = str(new_config["label"])
+        mapped_progress = map_stage_progress(stage_code, stage_progress)
+    else:
+        mapped_progress = map_stage_progress(current_stage_code, stage_progress)
+
+    if task.get("status") == "running":
+        mapped_progress = min(mapped_progress, 99)
+
+    if force:
+        task["progress"] = mapped_progress
+    else:
+        task["progress"] = max(int(task.get("progress", 0)), mapped_progress)
+
+    task["updated_at"] = datetime.now(timezone.utc)
+
+
+def infer_stage_update_from_message(text: str) -> Optional[tuple[str, Optional[int]]]:
+    normalized = text.lower()
+
+    stage_progress = [
+        ("fetching audio", ("download_audio", 10)),
+        ("remote audio downloaded", ("download_audio", 100)),
+        ("starting transcription", ("transcribing", 5)),
+        ("transcription complete", ("transcript_ready", 100)),
+        ("detected language", ("detect_language", 100)),
+        ("topic of the lecture", ("summary", 70)),
+        ("abstract of the lecture", ("summary", 100)),
+        ("starting postprocessing", ("postprocess", 10)),
+        ("postprocessing complete", ("postprocess", 100)),
+        ("postprocessing validation failed", ("postprocess", 100)),
+        ("postprocessing warning", ("postprocess", 100)),
+        ("retrying pdf generation with a safer latex cleanup pass", ("pdf_retry", 30)),
+        ("retrying pdf generation with xelatex unicode support", ("pdf_retry", 45)),
+        ("retrying pdf generation with lualatex unicode support", ("pdf_retry", 55)),
+        ("retrying pdf generation with a readable fallback layout", ("pdf_retry", 75)),
+        ("retrying pdf generation with an ascii-safe transliteration fallback", ("pdf_retry", 88)),
+        ("failed to convert latex to pdf", ("pdf_problem", 45)),
+        ("pdf generation skipped", ("tex_only", 100)),
+    ]
+
+    for marker, stage_data in stage_progress:
+        if marker in normalized:
+            return stage_data
+
+    return None
+
+
+def validate_remote_audio_url(audio_url: str) -> None:
+    parsed = urlparse(audio_url.strip())
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise RuntimeError("Enter a valid direct http:// or https:// link to an audio file.")
+
+    hostname = parsed.hostname
+    if not hostname:
+        raise RuntimeError("The provided URL is missing a hostname.")
+
+    if hostname.lower() == "localhost":
+        raise RuntimeError("Localhost URLs are not allowed for remote audio downloads.")
+
+    try:
+        host_ip = ipaddress.ip_address(hostname)
+    except ValueError:
+        return
+
+    if (
+        host_ip.is_private
+        or host_ip.is_loopback
+        or host_ip.is_link_local
+        or host_ip.is_multicast
+        or host_ip.is_reserved
+        or host_ip.is_unspecified
+    ):
+        raise RuntimeError(
+            "Private and local network URLs are not allowed for remote audio downloads."
+        )
+
+
+def build_remote_audio_name(audio_url: str, content_type: str | None) -> str:
+    parsed = urlparse(audio_url)
+    raw_name = os.path.basename(parsed.path)
+    filename = unquote(raw_name) if raw_name else "remote-audio"
+
+    if not os.path.splitext(filename)[1]:
+        filename += guess_audio_suffix(filename=filename, mime_type=content_type)
+
+    return filename
+
+
+async def download_audio_from_url(
+    audio_url: str,
+    logger: WebLogger,
+) -> tuple[bytes, str, Optional[str]]:
+    validate_remote_audio_url(audio_url)
+
+    await logger.stage("download_audio", 0)
+    await logger.partial_result("Fetching audio from the provided URL...")
+
+    timeout = httpx.Timeout(900.0, connect=30.0)
+    async with http_client.stream(
+        "GET",
+        audio_url,
+        follow_redirects=True,
+        timeout=timeout,
+    ) as response:
+        response.raise_for_status()
+
+        content_type_header = (
+            (response.headers.get("content-type") or "")
+            .split(";")[0]
+            .strip()
+            .lower()
+        )
+        filename = build_remote_audio_name(str(response.url), content_type_header)
+
+        if not is_supported_audio(filename, content_type_header):
+            raise RuntimeError(
+                "The URL does not look like a supported audio file. "
+                "Use a direct link to .wav, .mp3, .m4a, .ogg, .opus, .flac, .aac, .mp4, or .webm."
+            )
+
+        content_length = response.headers.get("content-length")
+        expected_bytes = int(content_length) if content_length and content_length.isdigit() else None
+
+        if expected_bytes and expected_bytes > REMOTE_AUDIO_MAX_BYTES:
+            max_mb = REMOTE_AUDIO_MAX_BYTES // (1024 * 1024)
+            raise RuntimeError(
+                f"Remote audio is too large for the web worker limit ({max_mb} MB)."
+            )
+
+        total_bytes = 0
+        chunks: list[bytes] = []
+
+        async for chunk in response.aiter_bytes():
+            if not chunk:
+                continue
+            total_bytes += len(chunk)
+            if total_bytes > REMOTE_AUDIO_MAX_BYTES:
+                max_mb = REMOTE_AUDIO_MAX_BYTES // (1024 * 1024)
+                raise RuntimeError(
+                    f"Remote audio is too large for the web worker limit ({max_mb} MB)."
+                )
+            chunks.append(chunk)
+            if expected_bytes:
+                await logger.progress(total_bytes, expected_bytes)
+
+    await logger.partial_result(
+        f"Remote audio downloaded: {round(total_bytes / (1024 * 1024), 1)} MB"
+    )
+    return b"".join(chunks), filename, content_type_header or None
+
+
+def build_task_bundle_bytes(task_id: str) -> bytes:
+    task = tasks[task_id]
+    archive_bytes = io.BytesIO()
+
+    metadata = {
+        "task_id": task.get("task_id"),
+        "status": task.get("status"),
+        "stage": task.get("stage"),
+        "title": task.get("title"),
+        "language": task.get("language"),
+        "detail": task.get("detail"),
+        "source_mode": task.get("source_mode"),
+        "source_name": task.get("source_name"),
+        "source_url": task.get("source_url"),
+        "audio_size_bytes": task.get("audio_size_bytes"),
+        "warning": task.get("warning"),
+        "error": task.get("error"),
+        "created_at": task.get("created_at").isoformat() if task.get("created_at") else None,
+        "updated_at": task.get("updated_at").isoformat() if task.get("updated_at") else None,
+        "completed_at": task.get("completed_at").isoformat() if task.get("completed_at") else None,
+        "duration_seconds": task.get("duration_seconds"),
+        "transcript_words": task.get("transcript_words"),
+        "abstract_words": task.get("abstract_words"),
+    }
+
+    summary_text = task.get("abstract") or ""
+    files_to_attach = [
+        ("transcript.txt", task.get("transcript_path")),
+        ("result.tex", task.get("tex_path")),
+        ("result.pdf", task.get("pdf_path")),
+    ]
+
+    with zipfile.ZipFile(archive_bytes, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        attached_any = False
+
+        for archive_name, path in files_to_attach:
+            if path and os.path.exists(path):
+                archive.write(path, arcname=archive_name)
+                attached_any = True
+
+        if summary_text:
+            archive.writestr("summary.txt", summary_text)
+            attached_any = True
+
+        archive.writestr(
+            "metadata.json",
+            json.dumps(metadata, ensure_ascii=False, indent=2),
+        )
+
+        if not attached_any:
+            raise HTTPException(
+                status_code=409,
+                detail="This task does not have any downloadable artifacts yet.",
+            )
+
+    archive_bytes.seek(0)
+    return archive_bytes.getvalue()
+
+
 @app.on_event("shutdown")
 async def shutdown_event():
     await http_client.aclose()
@@ -109,976 +492,8 @@ async def shutdown_event():
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conspectum Web</title>
-    <style>
-        :root {
-            --bg-1: #0f172a;
-            --bg-2: #111827;
-            --card: rgba(17, 24, 39, 0.78);
-            --card-border: rgba(255, 255, 255, 0.08);
-            --text: #e5e7eb;
-            --muted: #94a3b8;
-            --accent: #60a5fa;
-            --accent-2: #a78bfa;
-            --success: #34d399;
-            --warning: #fbbf24;
-            --danger: #f87171;
-            --white: #ffffff;
-            --shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            min-height: 100vh;
-            font-family: "Trebuchet MS", "Segoe UI Variable Text", sans-serif;
-            color: var(--text);
-            background:
-                radial-gradient(circle at top left, rgba(96, 165, 250, 0.18), transparent 30%),
-                radial-gradient(circle at top right, rgba(251, 191, 36, 0.12), transparent 28%),
-                linear-gradient(135deg, #07111f, #101826 46%, #172033);
-            position: relative;
-            overflow-x: hidden;
-        }
-
-        body::before,
-        body::after {
-            content: "";
-            position: fixed;
-            width: 320px;
-            height: 320px;
-            border-radius: 50%;
-            filter: blur(70px);
-            opacity: 0.22;
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        body::before {
-            top: -90px;
-            left: -60px;
-            background: #38bdf8;
-        }
-
-        body::after {
-            right: -90px;
-            bottom: 10%;
-            background: #f59e0b;
-        }
-
-        .page {
-            position: relative;
-            z-index: 1;
-            width: 100%;
-            max-width: 980px;
-            margin: 0 auto;
-            padding: 40px 20px 60px;
-        }
-
-        .hero {
-            text-align: center;
-            margin-bottom: 28px;
-        }
-
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 14px;
-            border-radius: 999px;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid var(--card-border);
-            color: var(--muted);
-            font-size: 13px;
-            margin-bottom: 18px;
-            backdrop-filter: blur(10px);
-        }
-
-        h1 {
-            margin: 0 0 10px;
-            font-size: clamp(32px, 5vw, 54px);
-            line-height: 1.05;
-            color: var(--white);
-            font-family: Georgia, "Times New Roman", serif;
-            letter-spacing: 0.02em;
-        }
-
-        .subtitle {
-            margin: 0 auto;
-            max-width: 700px;
-            color: var(--muted);
-            font-size: 16px;
-            line-height: 1.6;
-        }
-
-        .hero-strip {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 12px;
-            margin-top: 20px;
-        }
-
-        .hero-tile {
-            padding: 14px 16px;
-            border-radius: 18px;
-            border: 1px solid var(--card-border);
-            background: rgba(255, 255, 255, 0.05);
-            text-align: left;
-        }
-
-        .hero-tile strong {
-            display: block;
-            color: var(--white);
-            margin-bottom: 4px;
-            font-size: 14px;
-        }
-
-        .hero-tile span {
-            color: var(--muted);
-            font-size: 13px;
-            line-height: 1.5;
-        }
-
-        .card {
-            background: var(--card);
-            border: 1px solid var(--card-border);
-            border-radius: 24px;
-            box-shadow: var(--shadow);
-            backdrop-filter: blur(16px);
-        }
-
-        .upload-card {
-            padding: 24px;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: 1.2fr 0.8fr;
-            gap: 18px;
-            margin-top: 26px;
-        }
-
-        .dropzone {
-            position: relative;
-            border: 1.5px dashed rgba(255, 255, 255, 0.18);
-            border-radius: 22px;
-            padding: 26px;
-            background: rgba(255, 255, 255, 0.03);
-            transition: 0.2s ease;
-        }
-
-        .dropzone:hover {
-            border-color: rgba(96, 165, 250, 0.55);
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .dropzone.dragging {
-            border-color: rgba(251, 191, 36, 0.9);
-            background: rgba(251, 191, 36, 0.08);
-            box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.22);
-        }
-
-        .dropzone h2 {
-            margin: 0 0 8px;
-            font-size: 22px;
-            color: var(--white);
-        }
-
-        .dropzone p {
-            margin: 0;
-            color: var(--muted);
-            line-height: 1.55;
-        }
-
-        .file-row {
-            margin-top: 18px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            align-items: center;
-        }
-
-        input[type="file"] {
-            display: none;
-        }
-
-        .file-label,
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 48px;
-            padding: 0 18px;
-            border-radius: 14px;
-            border: 1px solid transparent;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s ease;
-            text-decoration: none;
-        }
-
-        .file-label {
-            color: var(--white);
-            background: rgba(255, 255, 255, 0.08);
-            border-color: var(--card-border);
-        }
-
-        .file-label:hover {
-            background: rgba(255, 255, 255, 0.12);
-        }
-
-        .btn {
-            color: var(--white);
-            background: linear-gradient(135deg, var(--accent), var(--accent-2));
-            box-shadow: 0 10px 24px rgba(96, 165, 250, 0.24);
-        }
-
-        .btn:hover {
-            transform: translateY(-1px);
-            filter: brightness(1.05);
-        }
-
-        .btn:disabled {
-            cursor: not-allowed;
-            opacity: 0.65;
-            transform: none;
-            filter: none;
-        }
-
-        .side-panel {
-            padding: 22px;
-        }
-
-        .panel-title {
-            margin: 0 0 12px;
-            font-size: 18px;
-            color: var(--white);
-        }
-
-        .field {
-            margin-bottom: 16px;
-        }
-
-        .field label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 14px;
-            color: var(--muted);
-        }
-
-        select {
-            width: 100%;
-            min-height: 48px;
-            padding: 0 14px;
-            border-radius: 14px;
-            border: 1px solid var(--card-border);
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--white);
-            font-size: 15px;
-            outline: none;
-        }
-
-        select option {
-            color: #111827;
-        }
-
-        .hint {
-            margin-top: 10px;
-            font-size: 13px;
-            color: var(--muted);
-            line-height: 1.5;
-        }
-
-        .meta {
-            margin-top: 12px;
-            padding: 14px;
-            border-radius: 16px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid var(--card-border);
-            color: var(--muted);
-            font-size: 14px;
-            line-height: 1.6;
-        }
-
-        .dashboard {
-            display: none;
-            margin-top: 22px;
-            gap: 18px;
-        }
-
-        .status-card,
-        .logs-card,
-        .result-card {
-            padding: 22px;
-        }
-
-        .status-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            margin-bottom: 14px;
-        }
-
-        .status-title {
-            margin: 0;
-            font-size: 20px;
-            color: var(--white);
-        }
-
-        .chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            min-height: 34px;
-            padding: 0 12px;
-            border-radius: 999px;
-            font-size: 13px;
-            font-weight: 700;
-            border: 1px solid transparent;
-        }
-
-        .chip.running {
-            color: #bfdbfe;
-            background: rgba(96, 165, 250, 0.12);
-            border-color: rgba(96, 165, 250, 0.22);
-        }
-
-        .chip.done {
-            color: #a7f3d0;
-            background: rgba(52, 211, 153, 0.12);
-            border-color: rgba(52, 211, 153, 0.22);
-        }
-
-        .chip.error {
-            color: #fecaca;
-            background: rgba(248, 113, 113, 0.12);
-            border-color: rgba(248, 113, 113, 0.22);
-        }
-
-        .progress-wrap {
-            margin-top: 8px;
-        }
-
-        .meta-grid {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 10px;
-            margin-top: 14px;
-        }
-
-        .meta-pill {
-            padding: 12px 14px;
-            border-radius: 16px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--card-border);
-        }
-
-        .meta-pill span {
-            display: block;
-            color: var(--muted);
-            font-size: 12px;
-            margin-bottom: 4px;
-        }
-
-        .meta-pill strong {
-            color: var(--white);
-            font-size: 14px;
-        }
-
-        .progress-top {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            margin-bottom: 10px;
-            color: var(--muted);
-            font-size: 14px;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 14px;
-            border-radius: 999px;
-            overflow: hidden;
-            background: rgba(255, 255, 255, 0.07);
-            border: 1px solid var(--card-border);
-        }
-
-        .progress-fill {
-            width: 0%;
-            height: 100%;
-            border-radius: 999px;
-            background: linear-gradient(90deg, var(--accent), var(--accent-2));
-            transition: width 0.25s ease;
-        }
-
-        .file-name {
-            margin-top: 10px;
-            color: var(--text);
-            font-size: 14px;
-        }
-
-        .logs-card h3,
-        .result-card h3 {
-            margin: 0 0 14px;
-            font-size: 18px;
-            color: var(--white);
-        }
-
-        #logsContainer {
-            max-height: 320px;
-            overflow: auto;
-            padding-right: 6px;
-        }
-
-        .log-list {
-            margin: 0;
-            padding-left: 18px;
-            color: var(--text);
-        }
-
-        .log-list li {
-            margin-bottom: 10px;
-            line-height: 1.5;
-        }
-
-        .empty {
-            color: var(--muted);
-            line-height: 1.6;
-        }
-
-        .result-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-
-        .result-summary {
-            margin-bottom: 14px;
-            padding: 14px;
-            border-radius: 16px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid var(--card-border);
-            color: var(--muted);
-            line-height: 1.6;
-        }
-
-        .result-link {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 48px;
-            padding: 0 18px;
-            border-radius: 14px;
-            text-decoration: none;
-            font-weight: 700;
-            color: var(--white);
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid var(--card-border);
-            transition: 0.2s ease;
-        }
-
-        .result-link:hover {
-            background: rgba(255, 255, 255, 0.12);
-            transform: translateY(-1px);
-        }
-
-        .result-link.primary {
-            background: linear-gradient(135deg, var(--success), #10b981);
-            border-color: transparent;
-            box-shadow: 0 10px 24px rgba(16, 185, 129, 0.24);
-        }
-
-        .warning-box,
-        .error-box {
-            margin-top: 14px;
-            padding: 14px 16px;
-            border-radius: 16px;
-            line-height: 1.55;
-            font-size: 14px;
-        }
-
-        .warning-box {
-            color: #fde68a;
-            background: rgba(251, 191, 36, 0.12);
-            border: 1px solid rgba(251, 191, 36, 0.22);
-        }
-
-        .error-box {
-            color: #fecaca;
-            background: rgba(248, 113, 113, 0.12);
-            border: 1px solid rgba(248, 113, 113, 0.22);
-        }
-
-        .footer-note {
-            margin-top: 14px;
-            color: var(--muted);
-            font-size: 13px;
-            line-height: 1.5;
-        }
-
-        @media (max-width: 840px) {
-            .grid {
-                grid-template-columns: 1fr;
-            }
-
-             .hero-strip,
-             .meta-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .page {
-                padding-top: 24px;
-            }
-
-            .upload-card,
-            .side-panel,
-            .status-card,
-            .logs-card,
-            .result-card {
-                padding: 18px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="page">
-        <div class="hero">
-            <div class="badge">AI-powered lecture summary • LaTeX • PDF</div>
-            <h1>Conspectum</h1>
-            <p class="subtitle">
-                Turn lecture audio into a cleaner study pack with transcript export, selectable depth,
-                and LaTeX-first output that is ready for coursework demos.
-            </p>
-            <div class="hero-strip">
-                <div class="hero-tile">
-                    <strong>Transcript Export</strong>
-                    <span>Download the recognized lecture text as a plain `.txt` file.</span>
-                </div>
-                <div class="hero-tile">
-                    <strong>Detail Presets</strong>
-                    <span>Switch between quick, balanced, and deep summaries before processing.</span>
-                </div>
-                <div class="hero-tile">
-                    <strong>Live Debug View</strong>
-                    <span>Watch the pipeline logs in real time and keep the TEX file even if PDF fails.</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="card upload-card">
-            <div class="grid">
-                <div class="dropzone" id="dropzone">
-                    <h2>Upload lecture audio</h2>
-                    <p>
-                        The web version accepts <strong>.wav, .mp3, .m4a, .ogg, .opus, .flac, .aac, .mp4, and .webm</strong>.
-                        After upload, processing starts in the background and you can watch progress live.
-                    </p>
-
-                    <form id="uploadForm" enctype="multipart/form-data">
-                        <div class="file-row">
-                            <label class="file-label" for="fileInput">Choose audio file</label>
-                            <input type="file" id="fileInput" accept="audio/*,.wav,.mp3,.m4a,.ogg,.oga,.opus,.flac,.aac,.mp4,.webm" required>
-                            <button class="btn" id="submitBtn" type="submit">Process audio</button>
-                        </div>
-
-                        <div class="file-name" id="fileName">No file selected</div>
-                    </form>
-
-                    <div class="meta">
-                        <strong>What you get:</strong><br>
-                        1. Structured .tex summary<br>
-                        2. PDF file if pdflatex is installed correctly<br>
-                        3. Live progress updates during processing
-                    </div>
-                </div>
-
-                <div class="card side-panel">
-                    <h3 class="panel-title">Processing settings</h3>
-
-                    <div class="field">
-                        <label for="language">Summary language</label>
-                        <select id="language">
-                            <option value="">Auto-detect</option>
-                            <option value="en">English</option>
-                            <option value="ru">Russian</option>
-                        </select>
-                    </div>
-
-                    <div class="field">
-                        <label for="detail">Summary depth</label>
-                        <select id="detail">
-                            <option value="standard">Balanced</option>
-                            <option value="brief">Quick</option>
-                            <option value="detailed">Deep</option>
-                        </select>
-                    </div>
-
-                    <div class="hint">
-                        Auto-detect tries to identify the lecture language automatically.
-                        You can also force Russian or English.
-                    </div>
-
-                    <div class="footer-note">
-                        Tip: if .tex is created but .pdf is missing, check whether <strong>pdflatex</strong>
-                        is installed and available in your system PATH.
-                    </div>
-                </div>
-            </div>
-
-            <div class="dashboard" id="dashboard">
-                <div class="card status-card">
-                    <div class="status-head">
-                        <h3 class="status-title">Task status</h3>
-                        <div class="chip running" id="statusChip">Running</div>
-                    </div>
-
-                    <div class="progress-wrap">
-                        <div class="progress-top">
-                            <span id="progressText">Waiting to start...</span>
-                            <span id="progressPercent">0%</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="progressFill"></div>
-                        </div>
-                    </div>
-
-                    <div class="meta-grid">
-                        <div class="meta-pill">
-                            <span>Title</span>
-                            <strong id="taskTitle">Pending</strong>
-                        </div>
-                        <div class="meta-pill">
-                            <span>Language</span>
-                            <strong id="taskLanguage">Pending</strong>
-                        </div>
-                        <div class="meta-pill">
-                            <span>Detail</span>
-                            <strong id="taskDetail">Balanced</strong>
-                        </div>
-                    </div>
-
-                    <div class="warning-box" id="warningBox" style="display: none;"></div>
-                    <div class="error-box" id="errorBox" style="display: none;"></div>
-                </div>
-
-                <div class="card logs-card">
-                    <h3>Processing log</h3>
-                    <div id="logsContainer" class="empty">Logs will appear here during processing.</div>
-                </div>
-
-                <div class="card result-card">
-                    <h3>Result files</h3>
-                    <div class="result-summary" id="resultSummary">Task metadata will appear here after upload.</div>
-                    <div class="result-actions" id="resultActions">
-                        <span class="empty">No files yet.</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const fileInput = document.getElementById('fileInput');
-        const fileName = document.getElementById('fileName');
-        const dropzone = document.getElementById('dropzone');
-        const uploadForm = document.getElementById('uploadForm');
-        const submitBtn = document.getElementById('submitBtn');
-        const dashboard = document.getElementById('dashboard');
-        const progressText = document.getElementById('progressText');
-        const progressPercent = document.getElementById('progressPercent');
-        const progressFill = document.getElementById('progressFill');
-        const logsContainer = document.getElementById('logsContainer');
-        const resultActions = document.getElementById('resultActions');
-        const resultSummary = document.getElementById('resultSummary');
-        const statusChip = document.getElementById('statusChip');
-        const warningBox = document.getElementById('warningBox');
-        const errorBox = document.getElementById('errorBox');
-        const taskTitle = document.getElementById('taskTitle');
-        const taskLanguage = document.getElementById('taskLanguage');
-        const taskDetail = document.getElementById('taskDetail');
-        let renderedMessagesCount = 0;
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.innerText = text;
-            return div.innerHTML;
-        }
-
-        function setStatus(status) {
-            statusChip.className = 'chip ' + status;
-
-            if (status === 'running') {
-                statusChip.innerText = 'Running';
-            } else if (status === 'done') {
-                statusChip.innerText = 'Done';
-            } else if (status === 'error') {
-                statusChip.innerText = 'Error';
-            } else {
-                statusChip.innerText = status;
-            }
-        }
-
-        function updateProgress(progress) {
-            const safeProgress = Math.max(0, Math.min(100, Number(progress || 0)));
-            progressText.innerText = safeProgress >= 100 ? 'Processing complete' : 'Processing...';
-            progressPercent.innerText = `${safeProgress}%`;
-            progressFill.style.width = `${safeProgress}%`;
-        }
-
-        function renderMessages(messages) {
-            if (!messages || messages.length === 0) {
-                logsContainer.className = 'empty';
-                logsContainer.innerHTML = 'No log messages yet.';
-                renderedMessagesCount = 0;
-                return;
-            }
-
-            const shouldStickToBottom =
-                logsContainer.scrollHeight - logsContainer.scrollTop - logsContainer.clientHeight < 24;
-
-            logsContainer.className = '';
-
-            let list = logsContainer.querySelector('.log-list');
-            if (!list || messages.length < renderedMessagesCount) {
-                logsContainer.innerHTML = '<ol class="log-list"></ol>';
-                list = logsContainer.querySelector('.log-list');
-                renderedMessagesCount = 0;
-            }
-
-            messages.slice(renderedMessagesCount).forEach((msg) => {
-                const item = document.createElement('li');
-                item.innerHTML = escapeHtml(msg);
-                list.appendChild(item);
-            });
-
-            renderedMessagesCount = messages.length;
-
-            if (shouldStickToBottom || renderedMessagesCount <= 2) {
-                logsContainer.scrollTop = logsContainer.scrollHeight;
-            }
-        }
-
-        function renderMetadata(data) {
-            taskTitle.innerText = data.title || 'Pending';
-            if (data.language === 'ru') {
-                taskLanguage.innerText = 'Russian';
-            } else if (data.language === 'en') {
-                taskLanguage.innerText = 'English';
-            } else {
-                taskLanguage.innerText = data.language || 'Pending';
-            }
-
-            if (data.detail === 'brief') {
-                taskDetail.innerText = 'Quick';
-            } else if (data.detail === 'detailed') {
-                taskDetail.innerText = 'Deep';
-            } else {
-                taskDetail.innerText = 'Balanced';
-            }
-
-            if (!data.title && !data.language) {
-                resultSummary.innerHTML = 'Task metadata will appear here after upload.';
-                return;
-            }
-
-            resultSummary.innerHTML = `
-                <strong>${escapeHtml(data.title || 'Untitled summary')}</strong><br>
-                Language: ${escapeHtml(taskLanguage.innerText)}<br>
-                Detail: ${escapeHtml(taskDetail.innerText)}
-            `;
-        }
-
-        function renderResults(data) {
-            const actions = [];
-
-            if (data.transcript_url) {
-                actions.push(`
-                    <a class="result-link" href="${data.transcript_url}" download="transcript.txt">
-                        Download Transcript
-                    </a>
-                `);
-            }
-
-            if (data.tex_url) {
-                actions.push(`
-                    <a class="result-link" href="${data.tex_url}" download="result.tex">
-                        Download TEX
-                    </a>
-                `);
-            }
-
-            if (data.pdf_url) {
-                actions.push(`
-                    <a class="result-link primary" href="${data.pdf_url}" download="result.pdf">
-                        Download PDF
-                    </a>
-                `);
-            }
-
-            if (actions.length === 0) {
-                resultActions.innerHTML = '<span class="empty">No files yet.</span>';
-                return;
-            }
-
-            resultActions.innerHTML = actions.join('');
-        }
-
-        async function pollTask(taskId) {
-            const response = await fetch(`/status/${taskId}`);
-
-            if (!response.ok) {
-                throw new Error('Unable to fetch task status');
-            }
-
-            const data = await response.json();
-
-            renderMessages(data.messages || []);
-            updateProgress(data.progress ?? 0);
-            renderMetadata(data);
-            renderResults(data);
-
-            if (data.warning) {
-                warningBox.style.display = 'block';
-                warningBox.innerText = data.warning;
-            } else {
-                warningBox.style.display = 'none';
-                warningBox.innerText = '';
-            }
-
-            if (data.status === 'done') {
-                setStatus('done');
-                progressText.innerText = 'Processing complete';
-                submitBtn.disabled = false;
-                return;
-            }
-
-            if (data.status === 'error') {
-                setStatus('error');
-                errorBox.style.display = 'block';
-                errorBox.innerText = data.error || 'Unknown error';
-                submitBtn.disabled = false;
-                return;
-            }
-
-            setStatus('running');
-            setTimeout(() => pollTask(taskId), 1500);
-        }
-
-        fileInput.addEventListener('change', () => {
-            if (fileInput.files && fileInput.files[0]) {
-                fileName.innerText = `Selected file: ${fileInput.files[0].name}`;
-            } else {
-                fileName.innerText = 'No file selected';
-            }
-        });
-
-        ['dragenter', 'dragover'].forEach((eventName) => {
-            dropzone.addEventListener(eventName, (event) => {
-                event.preventDefault();
-                dropzone.classList.add('dragging');
-            });
-        });
-
-        ['dragleave', 'dragend', 'drop'].forEach((eventName) => {
-            dropzone.addEventListener(eventName, (event) => {
-                event.preventDefault();
-                dropzone.classList.remove('dragging');
-            });
-        });
-
-        dropzone.addEventListener('drop', (event) => {
-            const droppedFiles = event.dataTransfer.files;
-            if (!droppedFiles || droppedFiles.length === 0) {
-                return;
-            }
-
-            const transfer = new DataTransfer();
-            transfer.items.add(droppedFiles[0]);
-            fileInput.files = transfer.files;
-            fileName.innerText = `Selected file: ${droppedFiles[0].name}`;
-        });
-
-        uploadForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const file = fileInput.files[0];
-            const language = document.getElementById('language').value;
-            const detail = document.getElementById('detail').value;
-
-            if (!file) {
-                fileName.innerText = 'Please choose an audio file first';
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('file', file);
-
-            if (language) {
-                formData.append('language', language);
-            }
-
-            if (detail) {
-                formData.append('detail', detail);
-            }
-
-            dashboard.style.display = 'grid';
-            submitBtn.disabled = true;
-            errorBox.style.display = 'none';
-            errorBox.innerText = '';
-            warningBox.style.display = 'none';
-            warningBox.innerText = '';
-            renderedMessagesCount = 0;
-            taskTitle.innerText = 'Pending';
-            taskLanguage.innerText = language || 'Auto';
-            taskDetail.innerText = detail === 'brief' ? 'Quick' : detail === 'detailed' ? 'Deep' : 'Balanced';
-            resultSummary.innerHTML = 'Upload accepted. Waiting for transcript and summary metadata...';
-            resultActions.innerHTML = '<span class="empty">No files yet.</span>';
-            logsContainer.className = 'empty';
-            logsContainer.innerHTML = 'Upload started...';
-            setStatus('running');
-            updateProgress(0);
-
-            try {
-                const response = await fetch('/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    setStatus('error');
-                    errorBox.style.display = 'block';
-                    errorBox.innerText = errorText;
-                    submitBtn.disabled = false;
-                    return;
-                }
-
-                const result = await response.json();
-                logsContainer.className = 'empty';
-                logsContainer.innerHTML = 'Task created. Waiting for processing...';
-
-                pollTask(result.task_id);
-            } catch (error) {
-                setStatus('error');
-                errorBox.style.display = 'block';
-                errorBox.innerText = error.message || 'Unknown upload error';
-                submitBtn.disabled = false;
-            }
-        });
-    </script>
-</body>
-</html>
-"""
+    with open(TEMPLATE_PATH, encoding="utf-8", errors="replace") as template_file:
+        return template_file.read()
 
 
 @app.post("/upload")
@@ -1089,32 +504,28 @@ async def upload_file(
 ):
     cleanup_expired_tasks()
 
+    normalized_language = normalize_language_value(language)
+    normalized_detail = normalize_detail_value(detail)
+
     if not is_supported_audio(file.filename, file.content_type):
         raise HTTPException(
             status_code=400,
-            detail="Supported audio formats: .wav, .mp3, .m4a, .ogg, .opus, .flac, .aac, .mp4, .webm",
+            detail=(
+                "Supported audio formats: .wav, .mp3, .m4a, .ogg, .opus, "
+                ".flac, .aac, .mp4, .m4b, .webm"
+            ),
         )
 
     audio_bytes = await file.read()
 
     task_id = str(uuid.uuid4())
-    tasks[task_id] = {
-        "status": "running",
-        "messages": [],
-        "progress": 0,
-        "tex_url": None,
-        "pdf_url": None,
-        "transcript_url": None,
-        "tex_path": None,
-        "pdf_path": None,
-        "transcript_path": None,
-        "title": None,
-        "language": None,
-        "detail": detail or "standard",
-        "error": None,
-        "warning": None,
-        "created_at": datetime.now(timezone.utc),
-    }
+    tasks[task_id] = create_task_state(
+        task_id,
+        normalized_detail,
+        source_mode="file",
+        source_name=file.filename,
+        audio_size_bytes=len(audio_bytes),
+    )
 
     logger = WebLogger(task_id)
 
@@ -1122,10 +533,59 @@ async def upload_file(
         run_processing(
             task_id=task_id,
             audio_bytes=audio_bytes,
-            language=language if language else None,
-            detail_level=detail if detail else "standard",
+            language=normalized_language,
+            detail_level=normalized_detail,
             audio_filename=file.filename,
             audio_mime_type=file.content_type,
+            source_name=file.filename,
+            logger=logger,
+        )
+    )
+
+    return {"task_id": task_id}
+
+
+@app.post("/upload-url")
+async def upload_url(
+    audio_url: str = Form(...),
+    language: Optional[str] = Form(None),
+    detail: Optional[str] = Form("standard"),
+):
+    cleanup_expired_tasks()
+
+    normalized_url = audio_url.strip()
+    if not normalized_url:
+        raise HTTPException(status_code=400, detail="Audio URL is required.")
+
+    normalized_language = normalize_language_value(language)
+    normalized_detail = normalize_detail_value(detail)
+
+    try:
+        validate_remote_audio_url(normalized_url)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    task_id = str(uuid.uuid4())
+    tasks[task_id] = create_task_state(
+        task_id,
+        normalized_detail,
+        source_mode="url",
+        source_name=normalized_url,
+        source_url=normalized_url,
+    )
+
+    logger = WebLogger(task_id)
+
+    asyncio.create_task(
+        run_processing(
+            task_id=task_id,
+            audio_bytes=None,
+            language=normalized_language,
+            detail_level=normalized_detail,
+            audio_filename=None,
+            audio_mime_type=None,
+            source_url=normalized_url,
+            source_name=normalized_url,
             logger=logger,
         )
     )
@@ -1135,35 +595,72 @@ async def upload_file(
 
 async def run_processing(
     task_id: str,
-    audio_bytes: bytes,
+    audio_bytes: Optional[bytes],
     language: Optional[str],
     detail_level: str,
     audio_filename: Optional[str],
     audio_mime_type: Optional[str],
     logger: WebLogger,
+    source_url: Optional[str] = None,
+    source_name: Optional[str] = None,
 ):
+    started_at = tasks.get(task_id, {}).get("created_at", datetime.now(timezone.utc))
+
     try:
+        set_task_stage(task_id, "starting", 20)
+        resolved_audio_bytes = audio_bytes
+        resolved_audio_filename = audio_filename
+        resolved_audio_mime_type = audio_mime_type
+        resolved_source_name = source_name or audio_filename or "audio"
+
+        if source_url:
+            set_task_stage(task_id, "prepare_url", 30)
+            (
+                resolved_audio_bytes,
+                resolved_audio_filename,
+                resolved_audio_mime_type,
+            ) = await download_audio_from_url(source_url, logger)
+            resolved_source_name = resolved_audio_filename or source_url
+            tasks[task_id].update(
+                {
+                    "source_name": resolved_source_name,
+                    "audio_size_bytes": len(resolved_audio_bytes),
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            )
+        elif resolved_audio_bytes is not None:
+            tasks[task_id].update(
+                {
+                    "source_name": resolved_source_name,
+                    "audio_size_bytes": len(resolved_audio_bytes),
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            )
+
+        if resolved_audio_bytes is None:
+            raise RuntimeError("No audio data was provided.")
+
         result = await process(
-            audio_bytes,
+            resolved_audio_bytes,
             ai,
             logger,
             language=language,
             detail_level=detail_level,
-            audio_filename=audio_filename,
-            audio_mime_type=audio_mime_type,
+            audio_filename=resolved_audio_filename,
+            audio_mime_type=resolved_audio_mime_type,
         )
 
         transcript_filename = f"transcript_{uuid.uuid4()}.txt"
         transcript_path = os.path.join(STATIC_DIR, transcript_filename)
 
-        with open(transcript_path, "w", encoding="utf-8") as f:
-            f.write(result.transcript)
+        with open(transcript_path, "w", encoding="utf-8") as file_handle:
+            file_handle.write(result.transcript)
 
         tex_filename = f"result_{uuid.uuid4()}.tex"
         tex_path = os.path.join(STATIC_DIR, tex_filename)
 
-        with open(tex_path, "w", encoding="utf-8") as f:
-            f.write(result.tex)
+        with open(tex_path, "w", encoding="utf-8") as file_handle:
+            file_handle.write(result.tex)
 
         pdf_filename = None
         pdf_path = None
@@ -1172,8 +669,8 @@ async def run_processing(
             pdf_filename = f"result_{uuid.uuid4()}.pdf"
             pdf_path = os.path.join(STATIC_DIR, pdf_filename)
 
-            with open(pdf_path, "wb") as f:
-                f.write(result.pdf)
+            with open(pdf_path, "wb") as file_handle:
+                file_handle.write(result.pdf)
 
         warning_message = result.pdf_warning
         if not pdf_filename and warning_message is None:
@@ -1194,13 +691,17 @@ async def run_processing(
                     "but the exact reason was not captured."
                 )
 
+        completed_at = datetime.now(timezone.utc)
         tasks[task_id].update(
             {
                 "status": "done",
                 "progress": 100,
+                "stage_code": "done",
+                "stage": TASK_STAGE_CONFIG["done"]["label"],
                 "title": result.title,
                 "language": result.language,
                 "detail": detail_level,
+                "bundle_url": f"/bundle/{task_id}",
                 "transcript_url": f"/static/{transcript_filename}",
                 "tex_url": f"/static/{tex_filename}",
                 "pdf_url": f"/static/{pdf_filename}" if pdf_filename else None,
@@ -1208,13 +709,34 @@ async def run_processing(
                 "tex_path": tex_path,
                 "pdf_path": pdf_path if pdf_filename else None,
                 "warning": warning_message,
+                "source_name": resolved_source_name,
+                "audio_size_bytes": len(resolved_audio_bytes),
+                "abstract": result.abstract,
+                "transcript_preview": make_preview(result.transcript),
+                "transcript_words": count_words(result.transcript),
+                "abstract_words": count_words(result.abstract),
+                "updated_at": completed_at,
+                "completed_at": completed_at,
+                "duration_seconds": max(
+                    0,
+                    round((completed_at - started_at).total_seconds()),
+                ),
             }
         )
-    except Exception as e:
+    except Exception as exc:
+        completed_at = datetime.now(timezone.utc)
         tasks[task_id].update(
             {
                 "status": "error",
-                "error": str(e),
+                "stage_code": "error",
+                "stage": TASK_STAGE_CONFIG["error"]["label"],
+                "error": str(exc),
+                "updated_at": completed_at,
+                "completed_at": completed_at,
+                "duration_seconds": max(
+                    0,
+                    round((completed_at - started_at).total_seconds()),
+                ),
             }
         )
 
@@ -1225,6 +747,24 @@ async def get_status(task_id: str):
         raise HTTPException(status_code=404, detail="Task not found")
 
     return tasks[task_id]
+
+
+@app.get("/bundle/{task_id}")
+async def get_task_bundle(task_id: str):
+    cleanup_expired_tasks()
+
+    if task_id not in tasks:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    bundle_bytes = build_task_bundle_bytes(task_id)
+    archive_name = safe_download_name(tasks[task_id].get("title"), f"conspectum-{task_id[:8]}")
+    filename = f"{archive_name}.zip"
+
+    return StreamingResponse(
+        io.BytesIO(bundle_bytes),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.get("/static/{filename}")

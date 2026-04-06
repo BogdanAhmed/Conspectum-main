@@ -53,5 +53,11 @@ class Logger:
         except UnicodeEncodeError:
             print(text.encode("utf-8", errors="replace").decode("utf-8", errors="replace"))
 
+    async def stage(self, stage: str, progress: typing.Optional[int] = None):
+        return
+
     async def progress(self, completed: int, total: int):
+        if total <= 0:
+            await self.partial_result("I am 0% done")
+            return
         await self.partial_result(f"I am {round(completed / total * 100)}% done")

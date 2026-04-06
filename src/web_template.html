@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conspectum</title>
+    <style>
+        :root {
+            --paper: #f6efdf;
+            --paper-2: #fffaf1;
+            --ink: #20303a;
+            --muted: #5d6970;
+            --line: rgba(66, 78, 84, 0.18);
+            --card: rgba(255, 251, 243, 0.84);
+            --accent: #0f766e;
+            --accent-2: #bf7a42;
+            --success: #2f855a;
+            --warn: #b96f00;
+            --danger: #b74d4d;
+            --shadow: 0 22px 60px rgba(89, 77, 47, 0.12);
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--ink);
+            font-family: "Segoe UI Variable Text", "Trebuchet MS", sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(15, 118, 110, 0.14), transparent 28%),
+                radial-gradient(circle at 85% 12%, rgba(191, 122, 66, 0.14), transparent 26%),
+                linear-gradient(180deg, #f8f1e3 0%, #ede3d0 100%);
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0.28;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent 0,
+                transparent 30px,
+                rgba(90, 80, 57, 0.025) 30px,
+                rgba(90, 80, 57, 0.025) 31px
+            );
+        }
+
+        button, input, select { font: inherit; }
+        .page { position: relative; z-index: 1; width: min(980px, calc(100% - 24px)); margin: 0 auto; padding: 18px 0 32px; }
+        .hero, .workspace { display: grid; gap: 22px; }
+        .hero { grid-template-columns: 1fr; align-items: stretch; margin-bottom: 14px; }
+        .workspace { grid-template-columns: 1fr; gap: 14px; }
+        .card {
+            background: var(--card);
+            border: 1px solid rgba(79, 73, 56, 0.12);
+            border-radius: 22px;
+            box-shadow: 0 16px 40px rgba(89, 77, 47, 0.09);
+            backdrop-filter: blur(16px);
+        }
+
+        .hero-copy h1, .hero-side h2, .section h2, .section h3 {
+            font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--accent);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .hero-copy {
+            display: grid;
+            gap: 10px;
+            padding: 18px 20px;
+            border: 1px solid rgba(79, 73, 56, 0.12);
+            border-radius: 20px;
+            background: rgba(255, 251, 243, 0.78);
+            box-shadow: 0 12px 28px rgba(89, 77, 47, 0.07);
+        }
+        .hero-copy h1 { margin: 0; font-size: clamp(28px, 4vw, 42px); line-height: 1.02; letter-spacing: -0.02em; max-width: 700px; }
+        .hero-copy p { margin: 0; max-width: 760px; color: var(--muted); font-size: 15px; line-height: 1.6; }
+        .pill-row, .chip-row, .download-row, .actions { display: flex; flex-wrap: wrap; gap: 12px; }
+        .pill-row { margin-top: 2px; gap: 8px; }
+        .pill { padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.72); color: var(--muted); font-size: 13px; }
+
+        .hero-side, .section, .status, .files, .preview, .logs { padding: 16px; }
+        .hero-side { display: none; }
+        .hero-side h2 { margin: 0 0 6px; font-size: 28px; }
+        .hero-side p, .subtle, .note, .hint, .meta-box, .result-note { color: var(--muted); line-height: 1.65; }
+        .side-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+        .setup-grid { display: grid; grid-template-columns: minmax(0, 1.14fr) minmax(260px, 0.86fr); gap: 16px; align-items: start; }
+        .setup-side { display: grid; gap: 12px; align-content: start; }
+        .compact-stack { margin-top: 0; }
+        .tile, .meta-tile { padding: 14px; border-radius: 16px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.62); }
+        .tile strong, .meta-tile strong { display: block; color: var(--ink); margin-bottom: 4px; font-size: 15px; }
+        .tile span { color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+        .section h2, .status h2, .files h3, .preview h3, .logs h3 { margin: 0; font-size: 22px; }
+        .kicker { margin: 0 0 6px; color: var(--accent); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+        .heading { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
+        .heading p { margin: 6px 0 0; }
+
+        .mode-switch { display: inline-flex; gap: 6px; padding: 4px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,0.68); margin-bottom: 12px; }
+        .mode-tab, .btn, .link-btn, .download {
+            min-height: 42px; padding: 0 14px; border-radius: 12px; border: 1px solid transparent; cursor: pointer;
+            text-decoration: none; font-weight: 700; transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+        }
+        .mode-tab { background: transparent; color: var(--muted); }
+        .mode-tab.active { color: var(--ink); background: linear-gradient(135deg, rgba(15,118,110,0.12), rgba(191,122,66,0.14)); box-shadow: inset 0 0 0 1px rgba(15,118,110,0.16); }
+        .btn { color: white; background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: 0 14px 28px rgba(15,118,110,0.18); }
+        .link-btn, .download { color: var(--ink); background: rgba(255,255,255,0.72); border-color: var(--line); }
+        .download.primary { color: white; background: linear-gradient(135deg, var(--success), #3f9d70); border-color: transparent; box-shadow: 0 14px 26px rgba(47,133,90,0.16); }
+        .btn:hover, .link-btn:hover, .download:hover, .mode-tab:hover { transform: translateY(-1px); }
+        .btn:disabled, .link-btn:disabled { opacity: 0.58; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        .panel { display: none; }
+        .panel.active { display: block; }
+        .dropzone {
+            padding: 18px; border-radius: 18px; border: 1.5px dashed rgba(15,118,110,0.28);
+            background: linear-gradient(135deg, rgba(255,255,255,0.62), rgba(251,244,229,0.9));
+            transition: border-color 0.2s ease, transform 0.2s ease;
+        }
+        .dropzone.dragging, .dropzone:hover { border-color: rgba(191,122,66,0.56); transform: translateY(-1px); }
+        .dropzone h3 { margin: 0 0 8px; font-size: 24px; }
+        .dropzone p { margin: 0; color: var(--muted); line-height: 1.55; font-size: 14px; }
+        input[type="file"] { display: none; }
+        label.input, .label { display: block; margin-bottom: 8px; color: var(--muted); font-size: 14px; font-weight: 700; }
+        input[type="url"], input[type="text"], select {
+            width: 100%; min-height: 50px; padding: 0 15px; border-radius: 14px; border: 1px solid rgba(57,71,78,0.26);
+            background: rgba(255,255,255,0.84); color: var(--ink); outline: none;
+        }
+        input[type="url"]:focus, input[type="text"]:focus, select:focus { border-color: rgba(15,118,110,0.46); box-shadow: 0 0 0 3px rgba(15,118,110,0.1); }
+        .stack { display: grid; gap: 12px; margin-top: 14px; }
+        .meta-box, .note-box, .result-note { padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,0.62); }
+        .section ul { margin: 0; padding-left: 18px; color: var(--muted); line-height: 1.7; }
+        .section li + li { margin-top: 8px; }
+        .dashboard { display: none; grid-template-columns: minmax(0,1fr) minmax(0,0.96fr); gap: 14px; margin-top: 16px; }
+        .dashboard.visible { display: grid; }
+        .tabs-card { grid-column: 1 / -1; }
+        .status-top { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 14px; }
+        .status-chip { display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: 999px; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; border: 1px solid var(--line); background: rgba(255,255,255,0.8); }
+        .status-chip.running { color: var(--accent); background: rgba(15,118,110,0.1); border-color: rgba(15,118,110,0.18); }
+        .status-chip.done { color: var(--success); background: rgba(47,133,90,0.1); border-color: rgba(47,133,90,0.18); }
+        .status-chip.error { color: var(--danger); background: rgba(183,77,77,0.1); border-color: rgba(183,77,77,0.18); }
+        .chip { padding: 10px 12px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,0.74); color: var(--muted); font-size: 13px; }
+        .progress-row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 10px; color: var(--muted); font-size: 14px; }
+        .progress-track { width: 100%; height: 10px; border-radius: 999px; overflow: hidden; border: 1px solid var(--line); background: rgba(82,92,98,0.12); }
+        .progress-fill { position: relative; width: 0%; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.24s ease; }
+        .progress-fill.running::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.28) 45%, transparent 100%); transform: translateX(-100%); animation: progressSweep 1.25s linear infinite; }
+        @keyframes progressSweep { from { transform: translateX(-100%); } to { transform: translateX(220%); } }
+        .meta-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-top: 12px; }
+        .meta-tile { padding: 10px 12px; }
+        .meta-tile span { display: block; margin-bottom: 4px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+        .meta-tile strong { font-size: 13px; line-height: 1.4; word-break: break-word; }
+        .alert { display: none; margin-top: 16px; padding: 14px 16px; border-radius: 16px; font-size: 14px; line-height: 1.6; }
+        .alert.warning { color: var(--warn); background: rgba(185,111,0,0.1); border: 1px solid rgba(185,111,0,0.18); }
+        .alert.error { color: var(--danger); background: rgba(183,77,77,0.1); border: 1px solid rgba(183,77,77,0.18); }
+        .preview-body, .log-wrap { border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,0.68); }
+        .preview-body { margin: 0; min-height: 210px; max-height: 320px; overflow: auto; padding: 14px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
+        .log-wrap { max-height: 320px; overflow: auto; padding: 12px 14px; }
+        .log-list { margin: 0; padding-left: 18px; line-height: 1.6; }
+        .log-list li + li { margin-top: 8px; }
+        .empty, .hint { color: var(--muted); line-height: 1.65; }
+        .tabs-bar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+        .tab-btn {
+            min-height: 38px;
+            padding: 0 12px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: rgba(255,255,255,0.75);
+            color: var(--muted);
+            cursor: pointer;
+            font-weight: 700;
+        }
+        .tab-btn.active {
+            color: var(--ink);
+            background: linear-gradient(135deg, rgba(15,118,110,0.12), rgba(191,122,66,0.14));
+            box-shadow: inset 0 0 0 1px rgba(15,118,110,0.16);
+        }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+        .tab-actions { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+
+        @media (max-width: 980px) {
+            .hero, .dashboard { grid-template-columns: 1fr; }
+            .tabs-card { grid-column: auto; }
+            .setup-grid, .side-grid, .meta-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+        }
+
+        @media (max-width: 700px) {
+            .page { width: min(100% - 18px, 100%); padding-top: 18px; padding-bottom: 38px; }
+            .hero-copy h1 { font-size: clamp(26px, 9vw, 36px); }
+            .hero-side, .section, .status, .files, .preview, .logs { padding: 14px; }
+            .setup-grid, .side-grid, .meta-grid { grid-template-columns: 1fr; }
+            .mode-switch { width: 100%; }
+            .mode-tab { flex: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header class="hero">
+            <section class="hero-copy">
+                <div class="eyebrow">Conspectum</div>
+                <h1>Конспект из аудио в один поток работы</h1>
+                <p>Загрузи файл или вставь прямой URL. Ниже сразу появятся этапы обработки, транскрипт, конспект и PDF без лишних экранов.</p>
+                <div class="pill-row">
+                    <div class="pill">Файл или URL</div>
+                    <div class="pill">Пошаговый статус</div>
+                    <div class="pill">Транскрипт, конспект и PDF</div>
+                </div>
+            </section>
+        </header>
+
+        <main class="workspace">
+            <section class="card section">
+                <div class="heading">
+                    <div>
+                        <p class="kicker">Старт</p>
+                        <h2>Источник аудио</h2>
+                        <p class="subtle">Здесь настраивается только запуск. Статус, лог и результаты появляются ниже на этой же странице.</p>
+                    </div>
+                </div>
+                <div class="setup-grid">
+                    <div class="setup-main">
+                        <div class="mode-switch" role="tablist" aria-label="Режим источника">
+                            <button class="mode-tab active" data-mode="file" type="button">Файл</button>
+                            <button class="mode-tab" data-mode="url" type="button">URL</button>
+                        </div>
+
+                        <div class="panel active" id="filePanel">
+                            <form id="fileForm" enctype="multipart/form-data">
+                                <div class="dropzone" id="dropzone">
+                                    <h3>Загрузи аудио</h3>
+                                    <p>Поддерживаются .wav, .mp3, .m4a, .ogg, .opus, .flac, .aac, .mp4, .m4b и .webm.</p>
+                                    <div class="stack">
+                                        <div class="actions">
+                                            <label class="link-btn" for="fileInput">Выбрать файл</label>
+                                            <input id="fileInput" type="file" accept="audio/*,.wav,.mp3,.m4a,.ogg,.oga,.opus,.flac,.aac,.mp4,.m4b,.webm">
+                                            <button class="btn" id="submitFileBtn" type="submit">Обработать</button>
+                                        </div>
+                                        <div class="meta-box" id="fileMeta"><strong>Файл не выбран.</strong><br>Перетащи его сюда или выбери вручную.</div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="panel" id="urlPanel">
+                            <form id="urlForm">
+                                <label class="label" for="audioUrl">Прямой URL на аудио</label>
+                                <input id="audioUrl" type="url" placeholder="https://example.com/lecture-audio.mp3" autocomplete="off">
+                                <div class="stack">
+                                    <div class="note-box"><strong>Нужна прямая ссылка на файл.</strong><br>Если это страница предпросмотра, а не сам аудиофайл, загрузка не сработает.</div>
+                                    <div class="actions">
+                                        <button class="btn" id="submitUrlBtn" type="submit">Скачать и обработать</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <aside class="setup-side">
+                        <div class="stack compact-stack">
+                            <div>
+                                <label class="label" for="language">Язык конспекта</label>
+                                <select id="language">
+                                    <option value="">Автоопределение</option>
+                                    <option value="en">Английский</option>
+                                    <option value="ru">Русский</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="label" for="detail">Глубина</label>
+                                <select id="detail">
+                                    <option value="standard">Сбалансированно</option>
+                                    <option value="brief">Кратко</option>
+                                    <option value="detailed">Подробно</option>
+                                </select>
+                            </div>
+                            <div class="note-box">
+                                <strong>Что будет дальше</strong><br>
+                                После запуска ниже появятся этапы обработки, лог, транскрипт, конспект и ссылки на файлы.
+                            </div>
+                            <button class="link-btn" id="resetBtn" type="button">Очистить экран</button>
+                        </div>
+                        <p class="hint" id="taskHint">Выбери источник и запусти обработку. Всё текущее состояние появится ниже.</p>
+                    </aside>
+                </div>
+            </section>
+        </main>
+
+        <section class="dashboard" id="dashboard">
+            <section class="card status">
+                <div class="status-top">
+                    <h2>Статус</h2>
+                    <div class="status-chip running" id="statusChip">В работе</div>
+                </div>
+                <div class="chip-row">
+                    <span class="chip" id="taskIdBadge">Задача ещё не создана</span>
+                    <span class="chip" id="taskSourceBadge">Источник не выбран</span>
+                </div>
+                <div class="progress-row">
+                    <span id="progressText">Подготовка задачи...</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+                <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+                <div class="meta-grid">
+                    <div class="meta-tile"><span>Заголовок</span><strong id="taskTitle">Ожидание</strong></div>
+                    <div class="meta-tile"><span>Язык</span><strong id="taskLanguage">Ожидание</strong></div>
+                    <div class="meta-tile"><span>Глубина</span><strong id="taskDetail">Сбалансированно</strong></div>
+                    <div class="meta-tile"><span>Источник</span><strong id="taskSource">Ожидание</strong></div>
+                    <div class="meta-tile"><span>Размер</span><strong id="taskSize">Ожидание</strong></div>
+                    <div class="meta-tile"><span>Создана</span><strong id="taskCreated">Ожидание</strong></div>
+                    <div class="meta-tile"><span>Время</span><strong id="taskDuration">Ожидание</strong></div>
+                    <div class="meta-tile"><span>Этап</span><strong id="taskStage">Ожидание</strong></div>
+                </div>
+                <div class="alert warning" id="warningBox"></div>
+                <div class="alert error" id="errorBox"></div>
+            </section>
+
+            <section class="card files">
+                <div class="heading">
+                    <div>
+                        <p class="kicker">Результат</p>
+                        <h3>Файлы</h3>
+                    </div>
+                    <button class="link-btn" id="copySummaryBtn" type="button" disabled>Скопировать конспект</button>
+                </div>
+                <div class="result-note" id="resultSummary">После запуска здесь появятся метаданные и ссылки на скачивание.</div>
+                <div class="download-row" id="resultActions"><span class="chip">Пока файлов нет</span></div>
+            </section>
+
+            <section class="card section tabs-card">
+                <div class="heading">
+                    <div>
+                        <p class="kicker">Просмотр</p>
+                        <h3>Содержимое</h3>
+                    </div>
+                </div>
+                <div class="tabs-bar">
+                    <button class="tab-btn active" type="button" data-tab="summary">Конспект</button>
+                    <button class="tab-btn" type="button" data-tab="transcript">Транскрипт</button>
+                    <button class="tab-btn" type="button" data-tab="log">Лог</button>
+                </div>
+                <div class="tab-panel active" id="summaryTab">
+                    <div class="tab-actions">
+                        <button class="link-btn" id="copySummaryTabBtn" type="button" disabled>Скопировать</button>
+                    </div>
+                    <pre class="preview-body" id="summaryPreview">Конспект появится после обработки.</pre>
+                </div>
+                <div class="tab-panel" id="transcriptTab">
+                    <div class="tab-actions">
+                        <button class="link-btn" id="copyTranscriptBtn" type="button" disabled>Скопировать</button>
+                    </div>
+                    <pre class="preview-body" id="transcriptPreview">Транскрипт появится после обработки.</pre>
+                </div>
+                <div class="tab-panel" id="logTab">
+                    <div class="log-wrap" id="logsContainer"><div class="empty">Лог появится здесь во время обработки.</div></div>
+                </div>
+            </section>
+        </section>
+    </div>
+
+    <script>
+        const fileForm = document.getElementById("fileForm");
+        const urlForm = document.getElementById("urlForm");
+        const fileInput = document.getElementById("fileInput");
+        const audioUrl = document.getElementById("audioUrl");
+        const fileMeta = document.getElementById("fileMeta");
+        const dropzone = document.getElementById("dropzone");
+        const submitFileBtn = document.getElementById("submitFileBtn");
+        const submitUrlBtn = document.getElementById("submitUrlBtn");
+        const languageSelect = document.getElementById("language");
+        const detailSelect = document.getElementById("detail");
+        const taskHint = document.getElementById("taskHint");
+        const dashboard = document.getElementById("dashboard");
+        const statusChip = document.getElementById("statusChip");
+        const progressText = document.getElementById("progressText");
+        const progressPercent = document.getElementById("progressPercent");
+        const progressFill = document.getElementById("progressFill");
+        const taskIdBadge = document.getElementById("taskIdBadge");
+        const taskSourceBadge = document.getElementById("taskSourceBadge");
+        const taskTitle = document.getElementById("taskTitle");
+        const taskLanguage = document.getElementById("taskLanguage");
+        const taskDetail = document.getElementById("taskDetail");
+        const taskSource = document.getElementById("taskSource");
+        const taskSize = document.getElementById("taskSize");
+        const taskCreated = document.getElementById("taskCreated");
+        const taskDuration = document.getElementById("taskDuration");
+        const taskStage = document.getElementById("taskStage");
+        const warningBox = document.getElementById("warningBox");
+        const errorBox = document.getElementById("errorBox");
+        const resultSummary = document.getElementById("resultSummary");
+        const resultActions = document.getElementById("resultActions");
+        const summaryPreview = document.getElementById("summaryPreview");
+        const transcriptPreview = document.getElementById("transcriptPreview");
+        const logsContainer = document.getElementById("logsContainer");
+        const copySummaryBtn = document.getElementById("copySummaryBtn");
+        const copySummaryTabBtn = document.getElementById("copySummaryTabBtn");
+        const copyTranscriptBtn = document.getElementById("copyTranscriptBtn");
+        const resetBtn = document.getElementById("resetBtn");
+        const modeTabs = Array.from(document.querySelectorAll(".mode-tab"));
+        const contentTabs = Array.from(document.querySelectorAll(".tab-btn"));
+        const contentPanels = {
+            summary: document.getElementById("summaryTab"),
+            transcript: document.getElementById("transcriptTab"),
+            log: document.getElementById("logTab"),
+        };
+        const panels = { file: document.getElementById("filePanel"), url: document.getElementById("urlPanel") };
+
+        const storageKey = "conspectum:last-task-id";
+        const state = {
+            currentTaskId: null,
+            pollTimer: null,
+            renderedMessagesCount: 0,
+            lastData: null,
+            liveTimer: null,
+            launchToken: 0,
+        };
+
+        function setHint(text) {
+            taskHint.textContent = text;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement("div");
+            div.innerText = text ?? "";
+            return div.innerHTML;
+        }
+
+        function prettyLanguage(code, fallback = "Ожидание") {
+            if (code === "en") return "Английский";
+            if (code === "ru") return "Русский";
+            return code || fallback;
+        }
+
+        function prettyDetail(code) {
+            if (code === "brief") return "Кратко";
+            if (code === "detailed") return "Подробно";
+            return "Сбалансированно";
+        }
+
+        function truncate(text, max = 52) {
+            if (!text) return "Ожидание";
+            if (text.length <= max) return text;
+            const edge = Math.max(10, Math.floor((max - 3) / 2));
+            return `${text.slice(0, edge)}...${text.slice(-edge)}`;
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === null || bytes === undefined || Number.isNaN(Number(bytes))) return "Ожидание";
+            const units = ["B", "KB", "MB", "GB"];
+            let value = Number(bytes);
+            let idx = 0;
+            while (value >= 1024 && idx < units.length - 1) {
+                value /= 1024;
+                idx += 1;
+            }
+            return `${value.toFixed(value >= 100 || idx === 0 ? 0 : 1)} ${units[idx]}`;
+        }
+
+        function formatTime(value) {
+            if (!value) return "Ожидание";
+            const date = new Date(value);
+            return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+        }
+
+        function formatDuration(seconds, running = false) {
+            if (seconds === null || seconds === undefined) return running ? "В работе" : "Ожидание";
+            const total = Math.max(0, Number(seconds));
+            const hrs = Math.floor(total / 3600);
+            const mins = Math.floor((total % 3600) / 60);
+            const secs = total % 60;
+            if (hrs > 0) return `${hrs}h ${mins}m ${secs}s`;
+            if (mins > 0) return `${mins}m ${secs}s`;
+            return `${secs}s`;
+        }
+
+        function persistTask(taskId) {
+            localStorage.setItem(storageKey, taskId);
+        }
+
+        function clearPersistedTask() {
+            localStorage.removeItem(storageKey);
+        }
+
+        function clearPollTimer() {
+            if (state.pollTimer) {
+                clearTimeout(state.pollTimer);
+                state.pollTimer = null;
+            }
+        }
+
+        function clearLiveTimer() {
+            if (state.liveTimer) {
+                clearInterval(state.liveTimer);
+                state.liveTimer = null;
+            }
+        }
+
+        function setMode(mode) {
+            modeTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.mode === mode));
+            Object.entries(panels).forEach(([key, panel]) => panel.classList.toggle("active", key === mode));
+        }
+
+        function setContentTab(mode) {
+            contentTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.tab === mode));
+            Object.entries(contentPanels).forEach(([key, panel]) => panel.classList.toggle("active", key === mode));
+        }
+
+        function setStatus(status) {
+            statusChip.className = `status-chip ${status}`;
+            statusChip.textContent = status === "done" ? "Готово" : status === "error" ? "Ошибка" : "В работе";
+        }
+
+        function inferDisplayedProgress(progress, status, stage) {
+            const safe = Math.max(0, Math.min(100, Number(progress || 0)));
+
+            if (status === "done") return 100;
+            if (status === "error") return Math.max(safe, 5);
+
+            const stageRanges = {
+                "В очереди": [2, 4],
+                "Запуск обработки": [4, 8],
+                "Подготовка URL": [8, 12],
+                "Скачивание источника": [12, 18],
+                "Распознавание аудио": [18, 38],
+                "Транскрипт готов": [38, 42],
+                "Определение языка": [42, 48],
+                "Сборка конспекта": [48, 60],
+                "Сборка разделов": [60, 80],
+                "Постобработка": [80, 90],
+                "Сборка PDF": [90, 96],
+                "Повторная сборка PDF": [94, 98],
+                "Проблема с PDF": [92, 96],
+                "Только TEX": [97, 99],
+            };
+
+            const [minStage, maxStage] = stageRanges[stage] || [2, 99];
+            return Math.min(Math.max(safe, minStage), maxStage);
+        }
+
+        function updateProgress(progress, status = "running", stage = "Ожидание") {
+            const displayed = inferDisplayedProgress(progress, status, stage);
+            progressFill.style.width = `${displayed}%`;
+            progressPercent.textContent = `${displayed}%`;
+            progressFill.classList.toggle("running", status === "running");
+
+            if (status === "done") {
+                progressText.textContent = "Обработка завершена";
+                return;
+            }
+
+            if (status === "error") {
+                progressText.textContent = "Обработка остановлена";
+                return;
+            }
+
+            if (stage && stage !== "В очереди") {
+                progressText.textContent = stage;
+                return;
+            }
+
+            progressText.textContent = displayed > 0 ? "Запускаю обработку" : "Подготовка задачи";
+        }
+
+        function setBusy(mode, busy) {
+            if (mode === "file") submitFileBtn.disabled = busy;
+            if (mode === "url") submitUrlBtn.disabled = busy;
+        }
+
+        function unlockInputs() {
+            submitFileBtn.disabled = false;
+            submitUrlBtn.disabled = false;
+        }
+
+        function showWarning(text) {
+            warningBox.style.display = text ? "block" : "none";
+            warningBox.textContent = text || "";
+        }
+
+        function showError(text) {
+            errorBox.style.display = text ? "block" : "none";
+            errorBox.textContent = text || "";
+        }
+
+        function updateFileMeta() {
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) {
+                fileMeta.innerHTML = "<strong>Файл не выбран.</strong><br>Перетащи его сюда или выбери вручную.";
+                return;
+            }
+            fileMeta.innerHTML = `<strong>${escapeHtml(file.name)}</strong><br>Размер: ${escapeHtml(formatBytes(file.size))}<br>Тип: ${escapeHtml(file.type || "неизвестно")}`;
+        }
+
+        function resetLogs() {
+            state.renderedMessagesCount = 0;
+            logsContainer.innerHTML = '<div class="empty">Лог появится здесь во время обработки.</div>';
+        }
+
+        function renderMessages(messages) {
+            if (!messages || messages.length === 0) {
+                resetLogs();
+                return;
+            }
+
+            const stick = logsContainer.scrollHeight - logsContainer.scrollTop - logsContainer.clientHeight < 24;
+            let list = logsContainer.querySelector(".log-list");
+
+            if (!list || messages.length < state.renderedMessagesCount) {
+                logsContainer.innerHTML = '<ol class="log-list"></ol>';
+                list = logsContainer.querySelector(".log-list");
+                state.renderedMessagesCount = 0;
+            }
+
+            messages.slice(state.renderedMessagesCount).forEach((message) => {
+                const item = document.createElement("li");
+                item.textContent = message;
+                list.appendChild(item);
+            });
+
+            state.renderedMessagesCount = messages.length;
+            if (stick || state.renderedMessagesCount <= 2) logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
+        function renderResults(data) {
+            const links = [];
+            if (data.bundle_url) links.push(`<a class="download" href="${data.bundle_url}">Скачать всё</a>`);
+            if (data.transcript_url) links.push(`<a class="download" href="${data.transcript_url}" download="transcript.txt">Транскрипт TXT</a>`);
+            if (data.tex_url) links.push(`<a class="download" href="${data.tex_url}" download="result.tex">Файл TEX</a>`);
+            if (data.pdf_url) links.push(`<a class="download primary" href="${data.pdf_url}" download="result.pdf">Файл PDF</a>`);
+            resultActions.innerHTML = links.length ? links.join("") : '<span class="chip">Пока файлов нет</span>';
+        }
+
+        function inferStage(data) {
+            if (!data) return "Ожидание";
+            if (data.stage) return data.stage;
+            if (data.status === "done") return "Готово";
+            if (data.status === "error") return "Ошибка";
+
+            const messages = (data.messages || []).map((message) => String(message).toLowerCase());
+            const latest = messages.slice(-6).join(" ");
+
+            if (latest.includes("fetching audio")) return "Скачивание источника";
+            if (latest.includes("starting transcription")) return "Распознавание аудио";
+            if (latest.includes("transcription complete")) return "Транскрипт готов";
+            if (latest.includes("detected language")) return "Определение языка";
+            if (latest.includes("topic of the lecture") || latest.includes("abstract of the lecture")) return "Сборка конспекта";
+            if (latest.includes("starting postprocessing")) return "Постобработка";
+            if (latest.includes("retrying pdf generation")) return "Повторная сборка PDF";
+            if (latest.includes("pdf generation skipped")) return "Только TEX";
+            if (latest.includes("failed to convert latex to pdf")) return "Проблема с PDF";
+            if (latest.includes("progress:")) return "Сборка разделов";
+            return data.source_mode === "url" ? "Подготовка URL" : "В очереди";
+        }
+
+        function refreshLiveDuration() {
+            if (!state.lastData || !state.lastData.created_at || state.lastData.status !== "running") return;
+            const started = new Date(state.lastData.created_at);
+            if (Number.isNaN(started.getTime())) return;
+            const seconds = Math.max(0, Math.round((Date.now() - started.getTime()) / 1000));
+            taskDuration.textContent = formatDuration(seconds, true);
+        }
+
+        function ensureLiveDurationTimer() {
+            clearLiveTimer();
+            if (state.lastData && state.lastData.status === "running" && state.lastData.created_at) {
+                refreshLiveDuration();
+                state.liveTimer = setInterval(refreshLiveDuration, 1000);
+            }
+        }
+
+        function renderMetadata(data) {
+            const stageLabel = inferStage(data);
+            taskIdBadge.textContent = data.task_id ? `ID ${data.task_id.slice(0, 8)}` : "Задача ещё не создана";
+            taskSourceBadge.textContent = data.source_mode === "url" ? "Источник: URL" : "Источник: файл";
+            taskTitle.textContent = data.title || "Ожидание";
+            taskLanguage.textContent = prettyLanguage(data.language);
+            taskDetail.textContent = prettyDetail(data.detail);
+            taskSource.textContent = truncate(data.source_name, 54);
+            taskSource.title = data.source_name || "";
+            taskSize.textContent = formatBytes(data.audio_size_bytes);
+            taskCreated.textContent = formatTime(data.created_at);
+            taskDuration.textContent = formatDuration(data.duration_seconds, data.status === "running");
+            taskStage.textContent = stageLabel;
+
+            const lines = [
+                `<strong>${escapeHtml(data.title || "Метаданные ещё загружаются.")}</strong>`,
+                `Язык: ${escapeHtml(prettyLanguage(data.language, "Автоопределение"))}`,
+                `Глубина: ${escapeHtml(prettyDetail(data.detail))}`
+            ];
+
+            if (data.abstract_words || data.transcript_words) {
+                lines.push(
+                    `Слов: ${escapeHtml(String(data.abstract_words || 0))} в конспекте, ${escapeHtml(String(data.transcript_words || 0))} в транскрипте`
+                );
+            }
+
+            resultSummary.innerHTML = lines.join("<br>");
+            summaryPreview.textContent = data.abstract || "Конспект появится после обработки.";
+            transcriptPreview.textContent = data.transcript_preview || "Транскрипт появится после обработки.";
+            copySummaryBtn.disabled = !data.abstract;
+            copySummaryTabBtn.disabled = !data.abstract;
+            copyTranscriptBtn.disabled = !data.transcript_preview;
+            ensureLiveDurationTimer();
+        }
+
+        function prepareDashboard(sourceLabel) {
+            dashboard.classList.add("visible");
+            state.lastData = null;
+            state.renderedMessagesCount = 0;
+            setStatus("running");
+            updateProgress(0, "running", "Запуск обработки");
+            showWarning("");
+            showError("");
+            taskIdBadge.textContent = "Задача ещё не создана";
+            taskSourceBadge.textContent = sourceLabel ? truncate(sourceLabel, 40) : "Источник не выбран";
+            taskTitle.textContent = "Ожидание";
+            taskLanguage.textContent = languageSelect.value ? prettyLanguage(languageSelect.value) : "Автоопределение";
+            taskDetail.textContent = prettyDetail(detailSelect.value);
+            taskSource.textContent = sourceLabel || "Ожидание";
+            taskSize.textContent = "Ожидание";
+            taskCreated.textContent = "Только что";
+            taskDuration.textContent = "Запуск";
+            taskStage.textContent = "Запуск обработки";
+            resultSummary.textContent = "После старта здесь появятся метаданные и ссылки на скачивание.";
+            resultActions.innerHTML = '<span class="chip">Файлы появятся после обработки</span>';
+            summaryPreview.textContent = "Конспект появится после обработки.";
+            transcriptPreview.textContent = "Транскрипт появится после обработки.";
+            copySummaryBtn.disabled = true;
+            copySummaryTabBtn.disabled = true;
+            copyTranscriptBtn.disabled = true;
+            resetLogs();
+            clearLiveTimer();
+        }
+
+        async function readError(response) {
+            const type = response.headers.get("content-type") || "";
+            if (type.includes("application/json")) {
+                const payload = await response.json().catch(() => null);
+                if (payload && typeof payload.detail === "string") return payload.detail;
+            }
+            return await response.text().catch(() => "Ошибка запроса.");
+        }
+
+        async function copyText(value, message) {
+            if (!value) {
+                setHint("Пока нечего копировать.");
+                return;
+            }
+            try {
+                await navigator.clipboard.writeText(value);
+                setHint(message);
+            } catch (error) {
+                setHint("Буфер обмена недоступен в этом контексте браузера.");
+            }
+        }
+
+        function handleTaskError(error, taskId) {
+            if (taskId !== state.currentTaskId) return;
+            clearPollTimer();
+            dashboard.classList.add("visible");
+            setStatus("error");
+            updateProgress(state.lastData?.progress ?? 0, "error", state.lastData ? inferStage(state.lastData) : "Ошибка");
+            showError(error.message || "Не удалось загрузить статус задачи.");
+            if ((error.message || "").toLowerCase().includes("task not found")) {
+                clearPersistedTask();
+                setHint("Текущая задача больше недоступна.");
+            } else {
+                setHint("Не удалось обновить статус. Попробуй перезапустить обработку.");
+            }
+        }
+
+        async function pollTask(taskId) {
+            const response = await fetch(`/status/${encodeURIComponent(taskId)}`);
+            if (!response.ok) throw new Error(await readError(response));
+            const data = await response.json();
+            if (taskId !== state.currentTaskId) return;
+
+            const currentStage = inferStage(data);
+            state.lastData = data;
+            renderMessages(data.messages || []);
+            renderMetadata(data);
+            renderResults(data);
+            showWarning(data.warning || "");
+            showError(data.status === "error" ? data.error || "Неизвестная ошибка" : "");
+
+            if (data.status === "done") {
+                clearPersistedTask();
+                setStatus("done");
+                updateProgress(data.progress ?? 100, "done", currentStage);
+                setHint("Готово. Файлы и превью уже доступны.");
+                return;
+            }
+
+            if (data.status === "error") {
+                clearPersistedTask();
+                setStatus("error");
+                updateProgress(data.progress ?? 0, "error", currentStage);
+                setHint("Задача завершилась с ошибкой. Проверь лог и попробуй ещё раз.");
+                return;
+            }
+
+            setStatus("running");
+            updateProgress(data.progress ?? 0, "running", currentStage);
+            state.pollTimer = setTimeout(() => pollTask(taskId).catch((error) => handleTaskError(error, taskId)), 1500);
+        }
+
+        function startPolling(taskId) {
+            clearPollTimer();
+            state.currentTaskId = taskId;
+            persistTask(taskId);
+            state.renderedMessagesCount = 0;
+            pollTask(taskId).catch((error) => handleTaskError(error, taskId));
+        }
+
+        async function startTask(endpoint, formData, sourceLabel, mode) {
+            const launchToken = ++state.launchToken;
+            prepareDashboard(sourceLabel);
+            setBusy(mode, true);
+            setHint("Задача создаётся. Статус появится ниже через несколько секунд.");
+
+            try {
+                const response = await fetch(endpoint, { method: "POST", body: formData });
+                if (!response.ok) throw new Error(await readError(response));
+                if (launchToken !== state.launchToken) return;
+                const payload = await response.json();
+                if (launchToken !== state.launchToken) return;
+                logsContainer.innerHTML = '<div class="empty">Задача создана. Ожидаем начало обработки.</div>';
+                startPolling(payload.task_id);
+                setHint("Обработка запущена. Страница будет обновляться автоматически.");
+            } catch (error) {
+                if (launchToken !== state.launchToken) return;
+                dashboard.classList.add("visible");
+                setStatus("error");
+                updateProgress(0, "error", "Ошибка запуска");
+                showError(error.message || "Не удалось запустить задачу.");
+                setHint("Запуск не удался. Проверь сообщение и попробуй ещё раз.");
+            } finally {
+                setBusy(mode, false);
+            }
+        }
+
+        function resetWorkspace() {
+            state.launchToken += 1;
+            clearPollTimer();
+            clearLiveTimer();
+            state.currentTaskId = null;
+            state.lastData = null;
+            state.renderedMessagesCount = 0;
+            clearPersistedTask();
+            unlockInputs();
+            dashboard.classList.remove("visible");
+            showWarning("");
+            showError("");
+            setHint("Выбери файл или ссылку и запусти обработку.");
+        }
+
+        modeTabs.forEach((tab) => tab.addEventListener("click", () => setMode(tab.dataset.mode)));
+        contentTabs.forEach((tab) => tab.addEventListener("click", () => setContentTab(tab.dataset.tab)));
+        fileInput.addEventListener("change", updateFileMeta);
+
+        ["dragenter", "dragover"].forEach((name) => {
+            dropzone.addEventListener(name, (event) => {
+                event.preventDefault();
+                dropzone.classList.add("dragging");
+            });
+        });
+
+        ["dragleave", "dragend", "drop"].forEach((name) => {
+            dropzone.addEventListener(name, (event) => {
+                event.preventDefault();
+                dropzone.classList.remove("dragging");
+            });
+        });
+
+        dropzone.addEventListener("drop", (event) => {
+            const dropped = event.dataTransfer.files;
+            if (!dropped || dropped.length === 0) return;
+            const transfer = new DataTransfer();
+            transfer.items.add(dropped[0]);
+            fileInput.files = transfer.files;
+            updateFileMeta();
+        });
+
+        fileForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) {
+                setHint("Сначала выбери аудиофайл.");
+                updateFileMeta();
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", file);
+            if (languageSelect.value) formData.append("language", languageSelect.value);
+            if (detailSelect.value) formData.append("detail", detailSelect.value);
+            await startTask("/upload", formData, file.name, "file");
+        });
+
+        urlForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const url = audioUrl.value.trim();
+            if (!url) {
+                setHint("Сначала вставь прямой URL на аудиофайл.");
+                audioUrl.focus();
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("audio_url", url);
+            if (languageSelect.value) formData.append("language", languageSelect.value);
+            if (detailSelect.value) formData.append("detail", detailSelect.value);
+            await startTask("/upload-url", formData, url, "url");
+        });
+
+        copySummaryBtn.addEventListener("click", async () => {
+            await copyText(state.lastData?.abstract || "", "Конспект скопирован.");
+        });
+
+        copySummaryTabBtn.addEventListener("click", async () => {
+            await copyText(state.lastData?.abstract || "", "Конспект скопирован.");
+        });
+
+        copyTranscriptBtn.addEventListener("click", async () => {
+            await copyText(state.lastData?.transcript_preview || "", "Транскрипт скопирован.");
+        });
+
+        resetBtn.addEventListener("click", resetWorkspace);
+
+        updateFileMeta();
+        unlockInputs();
+        setContentTab("summary");
+        const initialTaskId = localStorage.getItem(storageKey);
+        if (initialTaskId && initialTaskId.trim()) {
+            prepareDashboard("Возобновление обработки...");
+            setHint("Восстанавливаю текущую обработку после обновления страницы...");
+            startPolling(initialTaskId.trim());
+        }
+    </script>
+</body>
+</html>

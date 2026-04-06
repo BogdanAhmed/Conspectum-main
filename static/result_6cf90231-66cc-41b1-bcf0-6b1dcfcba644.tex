@@ -1,0 +1,443 @@
+\documentclass[a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{xcolor}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5em}
+
+\definecolor{thmcolor}{RGB}{220,235,255}
+\definecolor{defcolor}{RGB}{232,247,228}
+\definecolor{excolor}{RGB}{255,244,220}
+
+\providecommand{\mathbb}[1]{\mathbf{#1}}
+\providecommand{\mathcal}[1]{\mathit{#1}}
+\newcommand{\cref}[1]{\ref{#1}}
+\newcommand{\toprule}{\hline}
+\newcommand{\midrule}{\hline}
+\newcommand{\bottomrule}{\hline}
+\newcommand{\href}[2]{#2}
+\newcommand{\url}[1]{\texttt{#1}}
+\renewcommand{\labelitemi}{-}
+\renewcommand{\labelitemii}{--}
+
+\newcommand{\boxheading}[1]{%
+  \par\smallskip
+  \noindent\textbf{\ifx&#1&Note\else#1\fi}\par
+  \smallskip
+}
+
+% Theorem environment
+\newtheorem{theorem}{Theorem}[section]
+\newenvironment{thmbox}[1][]{%
+  \begin{quote}\color{blue!60!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Definition environment
+\newtheorem{definition}{Definition}[section]
+\newenvironment{defbox}[1][]{%
+  \begin{quote}\color{green!40!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Lemma environment
+\newtheorem{lemma}{Lemma}[section]
+\newenvironment{lembox}[1][]{%
+  \begin{quote}\color{orange!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Proposition environment
+\newtheorem{proposition}{Proposition}[section]
+\newenvironment{propbox}[1][]{%
+  \begin{quote}\color{violet!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Corollary environment
+\newtheorem{corollary}{Corollary}[section]
+\newenvironment{corbox}[1][]{%
+  \begin{quote}\color{cyan!50!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Example environment
+\newtheorem{example}{Example}[section]
+\newenvironment{exbox}[1][]{%
+  \begin{quote}\color{brown!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Remark environment
+\newtheorem{remark}{Remark}[section]
+\newenvironment{rembox}[1][]{%
+  \begin{quote}\color{black!70}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Customize enumerate and itemize
+% Custom table environment with caption, placement, and column spec
+\newenvironment{customtable}[3][htbp]{%
+  % #1 = optional: placement (default: htbp)
+  % #2 = mandatory: column specification (e.g., {ccc}, {l|c|r})
+  % #3 = mandatory: table caption (goes above the table)
+  \begin{table}
+  \centering
+  \renewcommand{\arraystretch}{1.2}
+  \textbf{#3}\par\smallskip
+  \begin{tabular}{#2}
+}{%
+  \end{tabular}
+  \end{table}
+}
+
+% ============================================================
+% DOCUMENT STRUCTURE GUIDELINES
+% ============================================================
+%
+% === 1. DOCUMENT STRUCTURE & FLOW ===
+% - Use \section{}, \subsection{}, \subsubsection{} to mirror lecture flow.
+% - Limit depth: section → subsection → subsubsection (avoid deeper).
+% - Start each section with a 1--2 sentence summary of what follows.
+% - Example:
+%   \section{Introduction}
+%   This section introduces the core concepts of vector spaces...
+
+% === 2. CONTENT ACCURACY ===
+% - Faithfully represent the lecture: definitions, theorems, examples, logic.
+% - Do NOT add external content unless noted (e.g., in footnotes).
+% - Paraphrase for clarity; use direct quotes sparingly.
+
+% === 3. MATHEMATICAL TYPESETTING ===
+% - Always use math mode: $x^2$, \[ \int f(x) dx \], or \begin{equation}.
+% - Number equations only if referenced later (use \label{} and \cref{}).
+% - Use semantic commands: \mathbb{R}, \mathcal{L}, \vec{v}, \nabla, etc.
+% - Example:
+%   \begin{equation}\label{eq:euler}
+%   e^{i\pi} + 1 = 0
+%   \end{equation}
+%   As shown in \cref{eq:euler}, ...
+
+% === 4. CUSTOM ENVIRONMENTS (USE AS INTENDED) ===
+% - \begin{defbox}[Title]     → For definitions (green-tinted).
+% - \begin{thmbox}[Title]     → For theorems/lemmas/propositions (blue-tinted).
+% - \begin{exbox}[Title]      → For examples (beige-tinted).
+% - \begin{rembox}[Title]     → For remarks/notes (gray-tinted).
+%
+% Rules:
+% - Always include a title: \begin{thmbox}[Pythagorean Theorem]}
+% - Keep content concise; avoid long paragraphs inside boxes.
+% - Do NOT nest boxes.
+% - For formal numbering, wrap amsthm environments inside:
+%   \begin{thmbox}[Mean Value Theorem]
+%   \begin{theorem}
+%   Let $f$ be continuous on $[a,b]$...
+%   \end{theorem}
+%   \end{thmbox}
+
+% === 5. LISTS AND ENUMERATIONS ===
+% - Use itemize for unordered key points:
+%   \begin{itemize}
+%     \item Point A
+%     \item Point B
+%   \end{itemize}
+% - Use enumerate for step-by-step procedures:
+%   \begin{enumerate}
+%     \item Step 1: Define domain.
+%     \item Step 2: Compute derivative.
+%   \end{enumerate}
+% - Avoid nesting >2 levels.
+
+% === 6. TABLES (USE customtable) ===
+% - Syntax:
+%   \begin{customtable}[placement]{column-spec}{Caption}
+%   \toprule
+%   Col1 & Col2 & Col3 \\
+%   \midrule
+%   Data & Data & Data \\
+%   \bottomrule
+%   \end{customtable}
+% - Example:
+%   \begin{customtable}[h]{lcc}{Experimental Results}
+%   \toprule
+%   Trial & Input & Output \\
+%   \midrule
+%   1 & 10 & 15 \\
+%   2 & 20 & 30 \\
+%   \bottomrule
+%   \end{customtable}
+% - Use booktabs rules (\toprule, \midrule, \bottomrule).
+% - No vertical lines; align numbers by decimal if needed.
+
+\begin{document}
+
+\begin{center}
+{\LARGE \textbf{Understanding Complexity in Information Theory: Entropy and Probabilistic Events}}\\[1em]
+\end{center}
+
+\textbf{Abstract.} This lecture explores three types of complexity in information theory: context complexity, algorithm complexity, and rigidity complexity. The primary learning objective is to elucidate the concept of channel entropy, which quantifies the amount of information produced by probabilistic events. Key theories discussed include the relationship between probability and information, emphasizing that less probable events yield more information. The lecturer illustrates these concepts through examples involving independent probabilistic events and their joint information, leading to the conclusion that entropy, defined mathematically using logarithms, serves as a measure of uncertainty in a system. The implications of these theories are significant for understanding information processing and uncertainty in various contexts.
+
+\section{Types of Complexity in Information Theory}
+This section introduces the three types of complexity relevant to information theory, focusing on their definitions and implications.
+
+\subsection{Overview of Complexity Types}
+The lecture identifies three primary types of complexity:
+\begin{itemize}
+    \item \textbf{Context Complexity}
+    \item \textbf{Algorithm Complexity}
+    \item \textbf{Rigidity Complexity}
+\end{itemize}
+These complexities provide a framework for understanding information processing and its implications in various contexts.
+
+\subsection{Rigidity Complexity}
+Rigidity complexity is introduced as a crucial concept within the framework of information theory. It relates to the constraints and limitations imposed on information processing methods. The lecturer emphasizes that rigidity complexity can influence the effectiveness of various algorithms and models.
+
+\subsection{Channel Entropy}
+The first significant concept discussed is \textbf{Channel Entropy}, which serves as a foundational element in understanding information theory. Channel entropy quantifies the amount of information produced by probabilistic events. It is essential for analyzing how information is transmitted through a channel.
+
+\begin{defbox}[Definition of Channel Entropy]
+Channel entropy, denoted as \( H(X) \), is defined as:
+\[
+H(X) = -\sum_{i} P(x_i) \log P(x_i)
+\]
+where \( P(x_i) \) is the probability of the event \( x_i \).
+\end{defbox}
+
+The lecturer notes that channel entropy is a critical component of many probabilistic models, indicating its relevance in various applications.
+
+\subsection{Probabilistic Events and Information}
+To illustrate the concept of channel entropy, the lecturer presents an example involving two probabilistic events. Let us denote these events as:
+\begin{itemize}
+    \item Event 1: Professor L
+    \item Event 2: Students using Professor L
+\end{itemize}
+The question posed is which of these probabilistic events provides more information. 
+
+\begin{exbox}[Example of Probabilistic Events]
+Consider the two events:
+\begin{itemize}
+    \item Event 1: The occurrence of Professor L giving a lecture.
+    \item Event 2: The occurrence of students engaging with Professor L's lecture.
+\end{itemize}
+The second event is likely to provide more information about the first event, as it implies the occurrence of the first event.
+\end{exbox}
+
+This example underscores the relationship between different probabilistic events and their informational content, setting the stage for further exploration of entropy and its implications in the next sections of the lecture.
+
+\subsection{Joint Information of Independent Events}
+In this section, we delve into the concept of joint information when dealing with independent probabilistic events. The lecturer emphasizes that when two events are statistically independent, the total information derived from both events can be computed as the sum of their individual information.
+
+\begin{defbox}
+\textbf{Statistical Independence:} Two events \( A \) and \( B \) are said to be statistically independent if the occurrence of one does not affect the probability of the occurrence of the other. Mathematically, this is expressed as:
+\[
+P(A \cap B) = P(A) \cdot P(B)
+\]
+\end{defbox}
+
+\begin{exbox}[Joint Information of Independent Events]
+Let us consider two independent events:
+\begin{itemize}
+    \item Event \( A \): Flipping a fair coin results in heads (probability \( P(A) = \frac{1}{2} \)).
+    \item Event \( B \): Rolling a fair six-sided die results in a 3 (probability \( P(B) = \frac{1}{6} \)).
+\end{itemize}
+The joint information \( I(A, B) \) can be calculated as:
+\[
+I(A, B) = I(A) + I(B)
+\]
+where \( I(A) \) and \( I(B) \) are the individual information measures for events \( A \) and \( B \), respectively.
+\end{exbox}
+
+The lecturer further explains that the only mathematical function that satisfies the conditions for measuring information in this context is the logarithm. This leads to a significant conclusion regarding the nature of information.
+
+\begin{thmbox}[Logarithmic Nature of Information]
+The amount of information \( I \) associated with a probabilistic event with probability \( p \) is given by:
+\begin{equation}
+I(p) = -\log(p)
+\end{equation}
+This relationship indicates that less probable events yield more information, as the logarithm function decreases as its argument increases.
+\end{thmbox}
+
+\begin{rembox}[Note]
+Traditionally, the natural logarithm (base \( e \)) is used in information theory; however, it is common to convert this into bits by using base 2 logarithm:
+\[
+I(p) = -\log_2(p)
+\]
+This conversion allows for the expression of information in terms of bits and bytes, which are more familiar in computing contexts.
+\end{rembox}
+
+The discussion highlights the importance of understanding how independent events contribute to the overall information content in a system, reinforcing the foundational principles of entropy in information theory.
+
+\subsection{Average Information and System States}
+In this section, we explore the concept of average information concerning the states of a system. The lecturer introduces the idea that when a system can exist in various states, each associated with a certain probability, the average information can be quantified.
+
+\begin{defbox}[Average Information]
+The average information \( \bar{I} \) about a system in different states is defined as:
+\[
+\bar{I} = \sum_{i} P_i \cdot I(p_i)
+\]
+where \( P_i \) is the probability of the system being in state \( i \), and \( I(p_i) \) is the information associated with that state.
+\end{defbox}
+
+The lecturer emphasizes that upon observing the system in a particular state, one receives a specific amount of information. This leads to the question of how much information has been gained through this observation.
+
+\begin{exbox}[Information Gain from Observing a State]
+Consider a system that can be in one of three states \( S_1, S_2, S_3 \) with probabilities \( P_1 = 0.2, P_2 = 0.5, P_3 = 0.3 \). The information gained upon observing the system in state \( S_2 \) can be calculated as follows:
+\[
+I(S_2) = -\log_2(P_2) = -\log_2(0.5) = 1 \text{ bit}
+\]
+This indicates that observing the system in state \( S_2 \) provides 1 bit of information.
+\end{exbox}
+
+\subsection{Information Measurement and System Position}
+The lecturer discusses the significance of measuring information concerning the position of the system. When the system is observed, the information received reflects the uncertainty about the system's state prior to observation.
+
+\begin{rembox}[Information Measurement]
+The measure of information received upon observing a system can be interpreted as the reduction of uncertainty. If a system was initially in a state of uncertainty, observing it reduces that uncertainty, thus providing information about its position.
+\end{rembox}
+
+This leads to a deeper understanding of how information is quantified in probabilistic systems. The lecturer reiterates that the average information reflects the expected amount of information one would gain from observing the system in its various states.
+
+\begin{thmbox}[Entropy as a Measure of Uncertainty]
+The entropy \( H \) of a discrete random variable representing the states of a system is defined as:
+\begin{equation}
+H(X) = -\sum_{i} P_i \log_2(P_i)
+\end{equation}
+This formula quantifies the average uncertainty inherent in the system's states, where \( P_i \) is the probability of state \( i \).
+\end{thmbox}
+
+The discussion illustrates that understanding the average information and entropy is crucial for analyzing the behavior of systems in information theory, as they provide insights into the uncertainty and information content associated with probabilistic events.
+
+\subsection{Understanding System Uncertainty}
+The lecturer emphasizes the concept of uncertainty in relation to a system when no observations are made. If one possesses only the probabilities of the system's states without any observational data, the system remains somewhat enigmatic.
+
+\begin{rembox}[System Mystery]
+When probabilities of a system are known but not observed, the system is described as "mysterious." This indicates that while some information is available, it does not provide a complete understanding of the system's state.
+\end{rembox}
+
+The lecturer poses a critical question: What is the measure of this unknown or the uncertainty associated with the system? This leads to a discussion on quantifying uncertainty in probabilistic systems.
+
+\subsection{Quantifying Uncertainty}
+To analyze the measure of uncertainty, the lecturer suggests examining the expression for uncertainty and determining its minimum value. The minimum measure of uncertainty is identified as zero.
+
+\begin{thmbox}[Minimum Uncertainty]
+The minimum measure of uncertainty in a system occurs when the probability of one state is equal to one, while the probabilities of all other states are zero. Mathematically, this can be expressed as:
+\[
+P_1 = 1 \quad \text{and} \quad P_i = 0 \quad \text{for } i \neq 1
+\]
+In this scenario, the uncertainty is effectively eliminated, as the system's state is fully known.
+\end{thmbox}
+
+The lecturer further explains that if one were to know nothing about the system, the measure of uncertainty would also be zero. This is a crucial point, as it underscores the relationship between knowledge and uncertainty.
+
+\subsection{Implications of Zero Uncertainty}
+The concept of zero uncertainty is pivotal in understanding the dynamics of information in a system. The lecturer clarifies that if the uncertainty measure \( E \) is zero, it implies complete knowledge of the system's state.
+
+\begin{exbox}[Example of Zero Uncertainty]
+Consider a system with two possible states: \( S_1 \) and \( S_2 \). If the probabilities are defined as:
+\[
+P(S_1) = 1 \quad \text{and} \quad P(S_2) = 0
+\]
+In this case, the uncertainty is zero, as the system is definitively in state \( S_1 \).
+\end{exbox}
+
+This leads to the conclusion that understanding uncertainty is essential for grasping the nature of information in probabilistic systems. The lecturer emphasizes that the measure of uncertainty directly influences the information content derived from observing the system.
+
+\subsection{Entropy and Complete Ignorance}
+In the context of information theory, when one possesses no knowledge about a system, all possible states of that system are considered equally probable. This scenario is characterized by a uniform probability distribution across all states.
+
+\begin{defbox}[Uniform Probability Distribution]
+A uniform probability distribution occurs when each of the \( M \) possible states \( S_i \) of a system has an equal probability of occurrence, given by:
+\[
+P(S_i) = \frac{1}{M} \quad \text{for } i = 1, 2, \ldots, M
+\]
+This reflects complete ignorance about which state the system is in.
+\end{defbox}
+
+Under these conditions, the entropy \( H \) of the system can be expressed mathematically. The entropy quantifies the uncertainty associated with a random variable and is defined as:
+\begin{equation}
+H(X) = -\sum_{i=1}^{M} P(S_i) \log P(S_i)
+\end{equation}
+Substituting the uniform probability into this formula yields:
+\begin{equation}
+H(X) = -\sum_{i=1}^{M} \frac{1}{M} \log \left(\frac{1}{M}\right) = \log M
+\end{equation}
+This indicates that the entropy reaches its maximum value when there is complete uncertainty about the system.
+
+\begin{thmbox}[Maximum Entropy]
+The maximum entropy occurs when all states are equally likely, leading to:
+\[
+H(X) = \log M
+\]
+This represents the highest level of uncertainty in the system, where \( M \) is the number of possible states.
+\end{thmbox}
+
+\subsection{Information Gain from Observations}
+The lecturer emphasizes that entropy not only measures uncertainty but also reflects the potential information gain when the state of the system becomes known. The amount of information gained can be understood as the difference in entropy before and after the observation.
+
+\begin{defbox}[Information Gain]
+Information gain, denoted as \( I \), can be defined as:
+\[
+I = H_{\text{before}} - H_{\text{after}}
+\]
+where \( H_{\text{before}} \) is the entropy prior to the observation and \( H_{\text{after}} \) is the entropy after the state has been revealed.
+\end{defbox}
+
+This concept illustrates that as uncertainty decreases (i.e., entropy decreases), the information gained from observing the system increases.
+
+\begin{exbox}[Example of Information Gain]
+Consider a system with three possible states \( S_1, S_2, S_3 \) with equal probabilities:
+\[
+P(S_1) = P(S_2) = P(S_3) = \frac{1}{3}
+\]
+The initial entropy is:
+\[
+H(X) = -3 \cdot \frac{1}{3} \log \left(\frac{1}{3}\right) = \log 3
+\]
+If an observation reveals the system is in state \( S_2 \), the entropy after the observation becomes zero:
+\[
+H_{\text{after}} = 0
+\]
+Thus, the information gain is:
+\[
+I = \log 3 - 0 = \log 3
+\end{exbox}
+
+\subsection{Conclusion}
+In summary, the concepts of entropy and information gain are fundamental to understanding uncertainty in information theory. The maximum entropy occurs under conditions of complete ignorance, while the reduction in entropy through observation leads to an increase in information. This interplay between uncertainty and information is crucial for analyzing probabilistic systems and their behaviors.
+
+\subsection{Joint Probability}
+In this section, we delve into the concept of joint probability, which is crucial for understanding the relationships between multiple random variables. Joint probability refers to the probability of two or more events occurring simultaneously. 
+
+\begin{defbox}[Joint Probability]
+The joint probability of two events \( A \) and \( B \) is denoted as \( P(A \cap B) \) and represents the likelihood that both events occur at the same time.
+\end{defbox}
+
+For two random variables \( X \) and \( Y \), the joint probability distribution can be expressed as \( P(X, Y) \). This distribution provides a comprehensive view of how the probabilities of \( X \) and \( Y \) interact.
+
+\subsubsection{Properties of Joint Probability}
+The joint probability has several important properties:
+\begin{itemize}
+    \item \textbf{Non-negativity:} \( P(X, Y) \geq 0 \) for all \( X \) and \( Y \).
+    \item \textbf{Normalization:} The sum of the joint probabilities over all possible values of \( X \) and \( Y \) equals 1:
+    \[
+    \sum_{x} \sum_{y} P(X = x, Y = y) = 1.
+    \]
+    \item \textbf{Marginal Probability:} The marginal probability of \( X \) can be obtained by summing the joint probabilities over all values of \( Y \):
+    \[
+    P(X = x) = \sum_{y} P(X = x, Y = y).
+    \]
+\end{itemize}
+
+\subsubsection{Example of Joint Probability}
+Consider two independent events, such as flipping a coin and rolling a die. Let \( X \) represent the outcome of the coin flip (Heads or Tails) and \( Y \) represent the outcome of the die roll (1 through 6). The joint probability can be represented in a table:
+
+\begin{customtable}[h]{|c|c|c|c|c|c|c|}{Joint Probability Distribution}
+\toprule
+    \& 1 \& 2 \& 3 \& 4 \& 5 \& 6 \\
+\midrule
+Heads \& \( \frac{1}{12} \) \& \( \frac{1}{12} \) \& \( \frac{1}{12} \) \& \( \frac{1}{12} \) \& \( \frac{1}{12} \) \& \( \frac{1}{12} \) \\
+\midrule
+Tails \& \( \frac{1}{12} \) \& \( \frac{1}{12} \) \& \( \frac{1}{12} \) \& \( \frac{1}{12} \) \& \( \frac{1}{12} \) \& \( \frac{1}{12} \) \\
+\bottomrule
+\end{customtable}
+
+In this case, the probability of getting Heads and rolling a 3 is \( P(X = \text{Heads}, Y = 3) = \frac{1}{12} \).
+
+\subsection{Conclusion}
+In conclusion, understanding joint probability is essential for analyzing the relationships between multiple random variables in information theory. It allows us to quantify the likelihood of simultaneous events and provides a foundation for further exploration of concepts such as conditional probability and independence. The interplay between joint and marginal probabilities is crucial for developing a comprehensive understanding of probabilistic systems and their behaviors.\end{document}

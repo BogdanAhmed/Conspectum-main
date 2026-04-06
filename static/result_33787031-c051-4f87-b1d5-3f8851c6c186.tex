@@ -1,0 +1,370 @@
+\documentclass[a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{xcolor}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5em}
+
+\definecolor{thmcolor}{RGB}{220,235,255}
+\definecolor{defcolor}{RGB}{232,247,228}
+\definecolor{excolor}{RGB}{255,244,220}
+
+\providecommand{\mathbb}[1]{\mathbf{#1}}
+\providecommand{\mathcal}[1]{\mathit{#1}}
+\newcommand{\cref}[1]{\ref{#1}}
+\newcommand{\toprule}{\hline}
+\newcommand{\midrule}{\hline}
+\newcommand{\bottomrule}{\hline}
+\newcommand{\href}[2]{#2}
+\newcommand{\url}[1]{\texttt{#1}}
+\renewcommand{\labelitemi}{-}
+\renewcommand{\labelitemii}{--}
+
+\newcommand{\boxheading}[1]{%
+  \par\smallskip
+  \noindent\textbf{\ifx&#1&Note\else#1\fi}\par
+  \smallskip
+}
+
+% Theorem environment
+\newtheorem{theorem}{Theorem}[section]
+\newenvironment{thmbox}[1][]{%
+  \begin{quote}\color{blue!60!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Definition environment
+\newtheorem{definition}{Definition}[section]
+\newenvironment{defbox}[1][]{%
+  \begin{quote}\color{green!40!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Lemma environment
+\newtheorem{lemma}{Lemma}[section]
+\newenvironment{lembox}[1][]{%
+  \begin{quote}\color{orange!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Proposition environment
+\newtheorem{proposition}{Proposition}[section]
+\newenvironment{propbox}[1][]{%
+  \begin{quote}\color{violet!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Corollary environment
+\newtheorem{corollary}{Corollary}[section]
+\newenvironment{corbox}[1][]{%
+  \begin{quote}\color{cyan!50!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Example environment
+\newtheorem{example}{Example}[section]
+\newenvironment{exbox}[1][]{%
+  \begin{quote}\color{brown!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Remark environment
+\newtheorem{remark}{Remark}[section]
+\newenvironment{rembox}[1][]{%
+  \begin{quote}\color{black!70}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Customize enumerate and itemize
+% Custom table environment with caption, placement, and column spec
+\newenvironment{customtable}[3][htbp]{%
+  % #1 = optional: placement (default: htbp)
+  % #2 = mandatory: column specification (e.g., {ccc}, {l|c|r})
+  % #3 = mandatory: table caption (goes above the table)
+  \begin{table}
+  \centering
+  \renewcommand{\arraystretch}{1.2}
+  \textbf{#3}\par\smallskip
+  \begin{tabular}{#2}
+}{%
+  \end{tabular}
+  \end{table}
+}
+
+\begin{document}
+
+\begin{center}
+{\LARGE \textbf{Understanding Complexity in Information Theory: Entropy and Predictive Complexity}}\\[1em]
+\end{center}
+
+\textbf{Abstract.} This lecture explores the concept of complexity within information theory, focusing on three types: context complexity, algorithm complexity, and rigidity complexity. Key learning objectives include understanding channel entropy and its implications for information content. The lecturer illustrates how probabilistic events can convey varying amounts of information, emphasizing that less probable events yield more information. The discussion covers the relationship between entropy and uncertainty, concluding that entropy serves as a measure of system uncertainty. The lecture also touches on predictive complexity, highlighting how past data can inform future predictions, and the mathematical underpinnings of these concepts, particularly through logarithmic functions.
+
+\section{Types of Complexity in Information Theory}
+This section introduces three types of complexity relevant to information theory: context complexity, algorithm complexity, and rigidity complexity.
+
+\begin{defbox}[Channel Entropy]
+Channel entropy is a fundamental concept in information theory that quantifies the amount of uncertainty or information produced by a probabilistic source. It serves as a measure of the complexity of the information being transmitted.
+\end{defbox}
+
+\begin{exbox}[Probabilistic Events]
+Consider two probabilistic events:
+\begin{itemize}
+    \item Event 1: Professor L
+    \item Event 2: Professor L uses the students.
+\end{itemize}
+The second event conveys more information than the first because it implies the first event, thus demonstrating the relationship between probability and information content.
+\end{exbox}
+
+\section{Joint Information and Logarithmic Functions}
+This section discusses the concept of joint information in relation to independent probabilistic events and the logarithmic function's role in quantifying information.
+
+\begin{rembox}[Joint Information]
+When two independent probabilistic events occur, the joint information is simply the sum of the individual information content of each event. Mathematically, if events \( A \) and \( B \) are independent, the joint information \( I(A, B) \) can be expressed as:
+\[
+I(A, B) = I(A) + I(B)
+\]
+\end{rembox}
+
+\begin{thmbox}[Logarithmic Function]
+The logarithmic function is the only function that satisfies the properties of joint information as described above. Specifically, for a probability \( p \), the information content can be defined as:
+\[
+I(p) = -\log(p)
+\]
+This relationship highlights that the less probable an event is, the more information it conveys.
+\end{thmbox}
+
+\begin{exbox}[Information Units]
+Traditionally, information is measured in units such as bits and bytes. The natural logarithm is often used in theoretical contexts, while binary logarithm is used in practical applications.
+\end{exbox}
+
+\section{State Information and Measurement}
+This section delves into the concept of state information within a system and how it relates to the probability of the system being in a particular state.
+
+\begin{defbox}[State Information]
+State information refers to the knowledge gained about a system when it is observed in a specific state. The amount of information received can be quantified based on the probability of the system being in that state.
+\end{defbox}
+
+\begin{rembox}[Note]
+When observing a system, the information received indicates how much we know about the system's state. The measure of this information can be understood through the system's probability distribution.
+\end{rembox}
+
+\begin{exbox}[Information Measurement]
+The question of how much information has been received can be framed in terms of the system's state probabilities. If the system is found in a particular state, the information gained corresponds to the inverse of the probability of that state occurring.
+\end{exbox}
+
+\section{System Uncertainty}
+This section examines the concept of uncertainty within a system when only probabilistic information is available.
+
+\begin{rembox}[Understanding System Uncertainty]
+When the system's behavior is only partially known through probabilities, it creates a sense of mystery regarding the system. The measure of this uncertainty can be quantified, and it is essential to understand how it relates to the probabilities assigned to different states.
+\end{rembox}
+
+\begin{defbox}[Measure of Uncertainty]
+The measure of system uncertainty is defined as the entropy of the system, which quantifies the level of unpredictability associated with the system's state. If the probabilities of all states are known, the uncertainty can be calculated.
+\end{defbox}
+
+\begin{thmbox}[Entropy and System Knowledge]
+If the probability of one state is equal to one, while all other states have a probability of zero, the entropy of the system is zero. This indicates that there is no uncertainty about the system's state. Conversely, if no information is known about the system, the entropy reflects maximum uncertainty.
+\end{thmbox}
+
+\section{Entropy and Predictive Complexity}
+This section delves into the relationship between entropy and predictive complexity, emphasizing the implications of complete ignorance about a system.
+
+\begin{rembox}[Entropy and Equal Probability]
+When no information is known about a system, all possible states can be considered equally probable. In this case, the probability of each state is given by \( \frac{1}{n} \), where \( n \) is the number of states. The entropy, in this scenario, is maximized and can be expressed as:
+\[
+H = -\sum_{i=1}^{n} P(x_i) \log P(x_i)
+\]
+\end{rembox}
+
+\begin{defbox}[Entropy Definition]
+Entropy is a measure of uncertainty in a system. It quantifies the amount of information gained when the state of the system is revealed. The entropy is highest when all states are equally probable, indicating maximum uncertainty.
+\end{defbox}
+
+\begin{exbox}[Example of Predictive Complexity]
+Consider a stream of data divided into segments. If the segments are represented as \( x, u, g \), and the probabilities of these segments are known, one can calculate the predictive complexity based on the distribution of these segments. The predictive complexity is influenced by the mean of the probabilities associated with each segment.
+\end{exbox}
+
+\section{Predictive Complexity}
+This section defines predictive complexity and explores its relationship with conditional probabilities and past information.
+
+\begin{defbox}[Predictive Complexity]
+Predictive complexity refers to the ability to predict future events based on past data. It is quantified through conditional probabilities, denoted as \( P(x|u) \), where \( x \) represents future events and \( u \) represents past information.
+\end{defbox}
+
+\begin{rembox}[Conditional Probability and Predictability]
+If the past data does not provide any useful information about future events, the predictive complexity is zero. For instance, in a completely random sequence, such as a coin toss, the predictability of future outcomes is non-existent, indicating that no information can be extracted from the past.
+\end{rembox}
+
+\begin{exbox}[Estimating Predictability]
+To estimate whether the future is predictable from the past, one can analyze the joint distribution of past and future events. If significant correlations exist, predictive complexity can be derived from these relationships, allowing for informed predictions about future occurrences.
+\end{exbox}
+
+\section{Temporal Lenses in Predictive Complexity}
+This section discusses the concepts of future and past lenses in the context of predictive complexity.
+
+\begin{rembox}[Future and Past Lenses]
+Let \( T \) represent the lens of future data and \( T' \) denote the lens of past data. This symmetrical approach highlights the complexity of deriving information about future events from past data (prediction) and vice versa (post-diction).
+\end{rembox}
+
+\begin{rembox}[Historical Context]
+The relationship between past and future data is often complicated by the subjective nature of historical interpretation. Historians construct narratives based on future perspectives, emphasizing that understanding the past can be as complex as predicting the future.
+\end{rembox}
+
+\begin{rembox}[Complex Operations]
+Both prediction and post-diction involve complex operations. The ability to extract meaningful information from past data to inform future predictions, or to reinterpret past events through future insights, underscores the intricate nature of temporal analysis in predictive complexity.
+\end{rembox}
+
+\section{Dependence of Future on Past Events}
+This section explores the relationship between future events and past data in predictive complexity.
+
+\begin{rembox}[Probabilistic Distribution]
+The joint distribution of future events \( X_{\text{future}} \) and past events \( X_{\text{past}} \) can be expressed as \( P(X_{\text{future}} | X_{\text{past}}) \). If the ratio of the joint distribution to the product of the marginal distributions is not equal to 1, it indicates a dependence of future events on past events.
+\end{rembox}
+
+\begin{rembox}[Measuring Dependence]
+The measure of dependence can be quantified through the ratio:
+\[
+\frac{P(X_{\text{future}}, X_{\text{past}})}{P(X_{\text{future}}) P(X_{\text{past}})}
+\]
+This ratio helps in assessing how much the future is influenced by the past.
+\end{rembox}
+
+\begin{rembox}[Integration and Averaging]
+To analyze the relationship between past and future events, one can iterate over \( X_{\text{past}} \) and compute averages. This integration aids in calculating the probabilistic distribution and understanding the dependencies involved.
+\end{rembox}
+
+\section{Comparative Analysis of Probabilistic Distributions}
+This section discusses the comparison of different probabilistic distributions using the concept of convergence in distribution.
+
+\begin{rembox}[Convergence in Distribution]
+Convergence in distribution allows for the comparison of probabilistic distributions. It provides a framework to evaluate how different distributions relate to one another, particularly in terms of their limiting behavior.
+\end{rembox}
+
+\section{Entropy Growth in Probabilistic Systems}
+This section examines the growth of entropy in various probabilistic systems, distinguishing between extensive and sub-extensive entropy.
+
+\begin{defbox}[Extensive Entropy]
+Extensive entropy refers to the conventional linear growth of entropy with respect to the size of the system. It implies that the entropy increases proportionally as the system expands.
+\end{defbox}
+
+\begin{defbox}[Sub-Extensive Entropy]
+Sub-extensive entropy describes a scenario where the growth of entropy is less than linear. This indicates that as the system increases, the entropy does not grow proportionally, reflecting a more complex relationship.
+\end{defbox}
+
+\begin{rembox}[Note]
+The relationship between extensive and sub-extensive entropy is crucial for understanding the underlying dynamics of probabilistic systems and their information content.
+\end{rembox}
+
+\begin{equation}
+H(t) = H_0 \cdot t + H_1 \cdot t^4
+\end{equation}
+This equation represents the growth of entropy over time, where \( H_0 \) and \( H_1 \) are constants that influence the rate of entropy increase.
+
+\section{Entropy Production Rate}
+This section discusses the entropy production rate and its implications for complexity in systems.
+
+\begin{defbox}[Entropy Production Rate]
+The entropy production rate quantifies how quickly entropy increases within a system, reflecting the system's irreversibility and the cost associated with maintaining its state.
+\end{defbox}
+
+The entropy production can be expressed in terms of the relationship:
+
+\begin{equation}
+H(t) = H_0 \cdot t + c \cdot t
+\end{equation}
+where \( H_0 \) is the initial entropy, \( c \) is a constant, and \( t \) represents time. This formulation indicates that the entropy grows linearly with time, influenced by both the initial entropy and a cost factor.
+
+\begin{rembox}[Complexity Implications]
+Understanding the entropy production rate is essential for analyzing the complexity of systems, as it provides insight into how quickly a system can reach equilibrium and the associated costs of maintaining order.
+\end{rembox}
+
+\section{Predictive Complexity}
+This section delves into the concept of predictive complexity as it relates to data streams.
+
+\begin{defbox}[Predictive Complexity]
+Predictive complexity refers to the extent to which past data can inform future predictions within a data stream. It is characterized by the relationship between the initial and final terms of the data sequence.
+\end{defbox}
+
+When applying predictive complexity to a primary class of data, it is noted that the first and last terms can effectively cancel each other out, leading to a simplified representation of the data stream. This cancellation indicates that predictive complexity is an extensive part of the data's overall structure, while the last term represents a sub-extensive component.
+
+\begin{rembox}[Linear Growth]
+The predictive complexity demonstrates linear growth in relation to the envelope of the data stream, suggesting that as the complexity of the system increases, the predictive capabilities also expand proportionally.
+\end{rembox}
+
+\section{Entropy and System Complexity}
+This section discusses the relationship between entropy and system complexity, emphasizing the implications of logarithmic functions in measuring entropy.
+
+\begin{defbox}[Entropy]
+Entropy is a measure of uncertainty or complexity within a system, indicating the amount of information that can be derived from a data stream.
+\end{defbox}
+
+It is noted that entropy exhibits extensive growth, meaning it scales with the size of the system. However, there are no positive growths in entropy without the influence of logarithmic functions, which suggests that the system's complexity is inherently tied to its entropy.
+
+\begin{rembox}[Distinguishing Systems]
+The first dimension of complexity allows for the differentiation between simple and complex systems, providing a foundational framework for understanding system behavior.
+\end{rembox}
+
+To calculate entropy values, one must observe the data stream over time. The process involves:
+
+\begin{enumerate}
+    \item Calculating the entropy for each time step.
+    \item Excluding any linear trends from the calculated sequence.
+    \item Analyzing the remaining values, which may follow a constant, logarithmic, or power function.
+\end{enumerate}
+
+This methodology simplifies the complexity analysis, making it accessible and straightforward.
+
+\section{Regression Analysis and Independence}
+This section delves into the principles of regression analysis, focusing on the independence of observations and the conditions necessary for valid regression models.
+
+\begin{defbox}[Covariance Condition]
+The covariance between two variables \( a_i \) and \( a_j \) is defined as zero unless \( i = j \). This indicates that observations are independent of one another.
+\end{defbox}
+
+In regression analysis, it is essential that the noise from different observations is independent. This independence condition ensures that the information linking past and future observations is preserved, allowing for accurate predictions.
+
+\begin{rembox}[Condensation Condition]
+The condensation condition for regression functions asserts that all relevant information about the relationship between past and future data is captured, ensuring that the regression parameters belong to a defined space.
+\end{rembox}
+
+The discussion also touches on extending the function pairs to series, indicating that different observations can be modeled through various functions, such as \( \psi_1 \) and \( \psi_2 \). This flexibility in modeling is crucial for capturing the dynamics of complex systems.
+
+\section{Geometric and Angular Distributions}
+This section introduces the geometric and angular distributions in the context of regression analysis.
+
+\begin{defbox}[Regression Function]
+The regression function can be represented as a sum of unknown base functions multiplied by their respective parameters. This function is denoted as:
+\[
+f(x) = \sum_{i} \beta_i \psi_i(x)
+\]
+where \( \beta_i \) are the parameters and \( \psi_i(x) \) are the basis functions.
+\end{defbox}
+
+The geometric distribution is particularly relevant in this context as it models the number of trials until the first success in a series of Bernoulli trials. The angular distribution, on the other hand, provides insights into the probabilistic behavior of angular data.
+
+\begin{rembox}[Joint Probability Estimation]
+In regression problems, the objective is to estimate the joint probability of the variables \( X \) and \( Y \). This estimation is crucial for understanding the relationships between different populations and their respective regression states.
+\end{rembox}
+
+The flexibility of the regression model allows for accommodating various populations, enhancing the model's adaptability and predictive power.
+
+\section{Distribution of Unknown Parameters}
+This section discusses the distribution of unknown parameters, particularly focusing on the parameter \(\alpha\).
+
+\begin{defbox}[Unknown Parameter Distribution]
+The distribution of the unknown parameter \(\alpha\) is characterized by the observations falling within a specific area. This distribution can be expressed mathematically based on the context of the observations.
+\end{defbox}
+
+Given that all observations are confined to this area, we can derive the distribution of the unknown parameter. The formulation allows for various representations, emphasizing the importance of understanding how these parameters influence the overall model.
+
+\begin{rembox}[Observational Context]
+The observations play a critical role in defining the distribution of the unknown parameters. Their confinement to a certain area provides a basis for estimating the parameter's distribution effectively.
+\end{rembox}
+
+\section{Conclusion}
+In this lecture, we explored the complexities of information theory, particularly focusing on entropy and its implications for predictive complexity. We established that entropy serves as a measure of uncertainty within a system, and we discussed how the distribution of unknown parameters, such as \(\alpha\), can be derived from observations confined to specific areas. Understanding these concepts is crucial for effectively modeling and predicting outcomes in various contexts. The interplay between observed data and theoretical constructs highlights the significance of statistical methods in information theory.
+
+\section{References}
+Cover, T. M., \& Thomas, J. A. \textit{Elements of Information Theory}. 2nd Edition. Chapter 2: Entropy and Information.\\
+Shannon, C. E. (1948). A Mathematical Theory of Communication. \textit{The Bell System Technical Journal}, 27(3), 379-423.\\
+MacKay, D. J. C. \textit{Information Theory, Inference, and Learning Algorithms}. Chapter 1: Information Theory.\\
+Kullback, S., \& Leibler, R. A. (1951). On Information and Sufficiency. \textit{Annals of Mathematical Statistics}, 22(1), 79-86.\\
+Cover, T. M., \& Thomas, J. A. (2006). \textit{Elements of Information Theory}. 2nd Edition. Wiley.
+\end{document}
