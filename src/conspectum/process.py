@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tempfile
 import typing
+import unicodedata
 from dataclasses import dataclass
 
 import openai
@@ -53,6 +54,28 @@ PROTECTED_AMPERSAND_ENVIRONMENTS = {
     "cases",
 }
 
+MATH_ENVIRONMENTS = (
+    "equation",
+    "equation*",
+    "align",
+    "align*",
+    "aligned",
+    "gather",
+    "gather*",
+    "multline",
+    "multline*",
+    "displaymath",
+    "array",
+    "matrix",
+    "pmatrix",
+    "bmatrix",
+    "vmatrix",
+    "Vmatrix",
+    "smallmatrix",
+    "cases",
+    "split",
+)
+
 UNICODE_LATEX_REPLACEMENTS = {
     "\u00a0": " ",
     "\u00ab": '"',
@@ -73,6 +96,26 @@ UNICODE_LATEX_REPLACEMENTS = {
     "\u2192": r"\ensuremath{\to}",
     "\u221e": r"\ensuremath{\infty}",
     "\u2208": r"\ensuremath{\in}",
+    "\u00b1": r"\ensuremath{\pm}",
+    "\u00d7": r"\ensuremath{\times}",
+    "\u00f7": r"\ensuremath{\div}",
+    "\u00b0": r"\ensuremath{^\circ}",
+    "\u2248": r"\ensuremath{\approx}",
+    "\u2261": r"\ensuremath{\equiv}",
+    "\u2194": r"\ensuremath{\leftrightarrow}",
+    "\u21d2": r"\ensuremath{\Rightarrow}",
+    "\u21d4": r"\ensuremath{\Leftrightarrow}",
+    "\u2202": r"\ensuremath{\partial}",
+    "\u2207": r"\ensuremath{\nabla}",
+    "\u2211": r"\ensuremath{\sum}",
+    "\u220f": r"\ensuremath{\prod}",
+    "\u222b": r"\ensuremath{\int}",
+    "\u221a": r"\ensuremath{\sqrt{}}",
+    "\u226a": r"\ensuremath{\ll}",
+    "\u226b": r"\ensuremath{\gg}",
+    "\u2282": r"\ensuremath{\subset}",
+    "\u2286": r"\ensuremath{\subseteq}",
+    "\u2209": r"\ensuremath{\notin}",
 }
 
 CYRILLIC_TO_ASCII = {
@@ -144,8 +187,147 @@ CYRILLIC_TO_ASCII = {
     "\u044f": "ya",
 }
 
+UNICODE_GREEK_MAP = {
+    "Α": "A",
+    "Β": "B",
+    "Γ": r"\Gamma",
+    "Δ": r"\Delta",
+    "Ε": "E",
+    "Ζ": "Z",
+    "Η": "H",
+    "Θ": r"\Theta",
+    "Ι": "I",
+    "Κ": "K",
+    "Λ": r"\Lambda",
+    "Μ": "M",
+    "Ν": "N",
+    "Ξ": r"\Xi",
+    "Ο": "O",
+    "Π": r"\Pi",
+    "Ρ": "P",
+    "Σ": r"\Sigma",
+    "Τ": "T",
+    "Υ": r"\Upsilon",
+    "Φ": r"\Phi",
+    "Χ": "X",
+    "Ψ": r"\Psi",
+    "Ω": r"\Omega",
+    "α": r"\alpha",
+    "β": r"\beta",
+    "γ": r"\gamma",
+    "δ": r"\delta",
+    "ε": r"\epsilon",
+    "ζ": r"\zeta",
+    "η": r"\eta",
+    "θ": r"\theta",
+    "ι": r"\iota",
+    "κ": r"\kappa",
+    "λ": r"\lambda",
+    "μ": r"\mu",
+    "ν": r"\nu",
+    "ξ": r"\xi",
+    "ο": "o",
+    "π": r"\pi",
+    "ρ": r"\rho",
+    "ς": r"\varsigma",
+    "σ": r"\sigma",
+    "τ": r"\tau",
+    "υ": r"\upsilon",
+    "φ": r"\phi",
+    "χ": r"\chi",
+    "ψ": r"\psi",
+    "ω": r"\omega",
+    "ϑ": r"\vartheta",
+    "ϕ": r"\varphi",
+    "ϖ": r"\varpi",
+    "ϵ": r"\varepsilon",
+    "ϱ": r"\varrho",
+}
+
+UNICODE_MATH_TEXT_MAP = {
+    "ℝ": r"\mathbb{R}",
+    "ℂ": r"\mathbb{C}",
+    "ℕ": r"\mathbb{N}",
+    "ℤ": r"\mathbb{Z}",
+    "ℚ": r"\mathbb{Q}",
+    "ℓ": r"\ell",
+    "∅": r"\varnothing",
+}
+
+UNICODE_MATH_OPERATOR_MAP = {
+    "−": "-",
+    "≤": r"\leq",
+    "≥": r"\geq",
+    "≠": r"\neq",
+    "≈": r"\approx",
+    "≡": r"\equiv",
+    "±": r"\pm",
+    "×": r"\times",
+    "÷": r"\div",
+    "·": r"\cdot",
+    "⋅": r"\cdot",
+    "∞": r"\infty",
+    "∈": r"\in",
+    "∉": r"\notin",
+    "⊂": r"\subset",
+    "⊆": r"\subseteq",
+    "→": r"\to",
+    "←": r"\leftarrow",
+    "↔": r"\leftrightarrow",
+    "⇒": r"\Rightarrow",
+    "⇔": r"\Leftrightarrow",
+    "∂": r"\partial",
+    "∇": r"\nabla",
+    "∑": r"\sum",
+    "∏": r"\prod",
+    "∫": r"\int",
+    "°": r"^\circ",
+}
+
+UNICODE_SUBSCRIPT_MAP = {
+    "₀": "0",
+    "₁": "1",
+    "₂": "2",
+    "₃": "3",
+    "₄": "4",
+    "₅": "5",
+    "₆": "6",
+    "₇": "7",
+    "₈": "8",
+    "₉": "9",
+    "₊": "+",
+    "₋": "-",
+    "₌": "=",
+    "₍": "(",
+    "₎": ")",
+}
+
+UNICODE_SUPERSCRIPT_MAP = {
+    "⁰": "0",
+    "¹": "1",
+    "²": "2",
+    "³": "3",
+    "⁴": "4",
+    "⁵": "5",
+    "⁶": "6",
+    "⁷": "7",
+    "⁸": "8",
+    "⁹": "9",
+    "⁺": "+",
+    "⁻": "-",
+    "⁼": "=",
+    "⁽": "(",
+    "⁾": ")",
+    "ⁿ": "n",
+}
+
 _LATEX_BASE_COMMANDS: dict[str, list[str]] = {}
 _PDF_FALLBACK_FONT_NAME: typing.Optional[str] = None
+LANGUAGE_PREAMBLE_START = "% <CONSPECTUM LANGUAGE SETUP START>"
+LANGUAGE_PREAMBLE_END = "% <CONSPECTUM LANGUAGE SETUP END>"
+TEXT_MATH_TOKEN_PATTERN = re.compile(
+    r"(?<!\\)(?P<base>[A-Za-z0-9]+|[Α-Ωα-ωϐ-ϖ])(?P<sub>[₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎]+)?(?P<sup>[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿ]+)?"
+)
 
 
 @dataclass
@@ -159,6 +341,22 @@ class ProcessResult:
     pdf_warning: typing.Optional[str] = None
 
 
+@dataclass
+class LatexPreparationResult:
+    tex: str
+    notes: list[str]
+
+
+@dataclass
+class LatexCompilationError(RuntimeError):
+    engine: str
+    summary: str
+    diagnostics: str
+
+    def __str__(self) -> str:
+        return self.summary
+
+
 if not shutil.which("pdflatex"):
     _tex_bin = "/Library/TeX/texbin"
     if os.path.isdir(_tex_bin):
@@ -169,6 +367,9 @@ LANG_CONFIG = {
     "en": {
         "fontenc": "T1",
         "babel": "english",
+        "polyglossia": "english",
+        "other_language": "russian",
+        "abstract_label": "Abstract",
         "theorem": "Theorem",
         "definition": "Definition",
         "lemma": "Lemma",
@@ -180,6 +381,9 @@ LANG_CONFIG = {
     "ru": {
         "fontenc": "T2A",
         "babel": "russian",
+        "polyglossia": "russian",
+        "other_language": "english",
+        "abstract_label": "\u0410\u043d\u043d\u043e\u0442\u0430\u0446\u0438\u044f",
         "theorem": "Теорема",
         "definition": "Определение",
         "lemma": "Лемма",
@@ -197,6 +401,8 @@ def localize_template(tex_template: str, language: str) -> str:
     replacements = {
         "<FONTENC>": config["fontenc"],
         "<BABEL_LANG>": config["babel"],
+        "<POLYGLOSSIA_LANG>": config["polyglossia"],
+        "<OTHER_LANG>": config["other_language"],
         "<THEOREM_NAME>": config["theorem"],
         "<DEFINITION_NAME>": config["definition"],
         "<LEMMA_NAME>": config["lemma"],
@@ -204,12 +410,97 @@ def localize_template(tex_template: str, language: str) -> str:
         "<COROLLARY_NAME>": config["corollary"],
         "<EXAMPLE_NAME>": config["example"],
         "<REMARK_NAME>": config["remark"],
+        "<ABSTRACT_LABEL>": config["abstract_label"],
     }
 
     for placeholder, value in replacements.items():
         tex_template = tex_template.replace(placeholder, value)
 
     return tex_template
+
+
+def build_language_setup_block(language: str) -> str:
+    config = LANG_CONFIG[language]
+    return "\n".join(
+        [
+            LANGUAGE_PREAMBLE_START,
+            r"\usepackage{iftex}",
+            r"\ifPDFTeX",
+            r"  \usepackage[utf8]{inputenc}",
+            fr"  \usepackage[{config['fontenc']}]{{fontenc}}",
+            fr"  \usepackage[{config['babel']}]{{babel}}",
+            r"\else",
+            r"  \usepackage{fontspec}",
+            r"  \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}",
+            r"  \IfFontExistsTF{Times New Roman}{\setmainfont{Times New Roman}}{%",
+            r"    \IfFontExistsTF{Noto Serif}{\setmainfont{Noto Serif}}{%",
+            r"      \IfFontExistsTF{DejaVu Serif}{\setmainfont{DejaVu Serif}}{%",
+            r"        \setmainfont{Latin Modern Roman}%",
+            r"      }%",
+            r"    }%",
+            r"  }",
+            r"  \IfFontExistsTF{Arial}{\setsansfont{Arial}}{%",
+            r"    \IfFontExistsTF{Noto Sans}{\setsansfont{Noto Sans}}{%",
+            r"      \IfFontExistsTF{DejaVu Sans}{\setsansfont{DejaVu Sans}}{%",
+            r"        \setsansfont{Latin Modern Sans}%",
+            r"      }%",
+            r"    }%",
+            r"  }",
+            r"  \IfFontExistsTF{Consolas}{\setmonofont{Consolas}}{%",
+            r"    \IfFontExistsTF{DejaVu Sans Mono}{\setmonofont{DejaVu Sans Mono}}{%",
+            r"      \setmonofont{Latin Modern Mono}%",
+            r"    }%",
+            r"  }",
+            r"\fi",
+            LANGUAGE_PREAMBLE_END,
+        ]
+    )
+
+
+def ensure_multilingual_latex_preamble(latex_content: str, language: str) -> str:
+    language_setup = build_language_setup_block(language)
+    marked_setup_pattern = re.compile(
+        re.escape(LANGUAGE_PREAMBLE_START) + r".*?" + re.escape(LANGUAGE_PREAMBLE_END),
+        flags=re.DOTALL,
+    )
+    if marked_setup_pattern.search(latex_content):
+        return marked_setup_pattern.sub(lambda _match: language_setup, latex_content, count=1)
+
+    preamble_cleanup_patterns = [
+        r"\\usepackage\{iftex\}\s*",
+        r"\\ifPDFTeX\b.*?\\fi\s*",
+        r"\\usepackage\[[^\]]*\]\{inputenc\}\s*",
+        r"\\usepackage\[[^\]]*\]\{fontenc\}\s*",
+        r"\\usepackage\[[^\]]*\]\{babel\}\s*",
+        r"\\usepackage\{fontspec\}\s*",
+        r"\\setmainlanguage\{[^{}]+\}\s*",
+        r"\\setotherlanguage\{[^{}]+\}\s*",
+        r"\\defaultfontfeatures\{[^{}]*\}\s*",
+        r"\\setmainfont\{[^{}]+\}\s*",
+        r"\\setsansfont\{[^{}]+\}\s*",
+        r"\\setmonofont\{[^{}]+\}\s*",
+        r"\\newfontfamily\\[A-Za-z@]+\{[^{}]+\}\s*",
+    ]
+
+    preamble_ready = latex_content
+    for pattern in preamble_cleanup_patterns:
+        preamble_ready = re.sub(pattern, "", preamble_ready, flags=re.DOTALL)
+
+    documentclass_match = re.search(
+        r"(\\documentclass(?:\[[^\]]*\])?\{[^{}]+\})",
+        preamble_ready,
+    )
+    if not documentclass_match:
+        return language_setup + "\n" + preamble_ready
+
+    insert_at = documentclass_match.end()
+    return (
+        preamble_ready[:insert_at]
+        + "\n\n"
+        + language_setup
+        + "\n"
+        + preamble_ready[insert_at:]
+    )
 
 
 def latex_engine_available(engine: str) -> bool:
@@ -248,6 +539,34 @@ def contains_non_ascii_characters(text: str) -> bool:
     return any(ord(char) > 127 for char in text)
 
 
+def contains_cyrillic_characters(text: str) -> bool:
+    return any("\u0400" <= char <= "\u04FF" for char in text)
+
+
+def contains_unicode_math_characters(text: str) -> bool:
+    math_chars = (
+        set(UNICODE_GREEK_MAP)
+        | set(UNICODE_MATH_OPERATOR_MAP)
+        | set(UNICODE_MATH_TEXT_MAP)
+        | set(UNICODE_SUBSCRIPT_MAP)
+        | set(UNICODE_SUPERSCRIPT_MAP)
+    )
+    return any(char in math_chars for char in text)
+
+
+def get_preferred_latex_engines(latex_content: str, language: str) -> list[str]:
+    prefer_unicode = (
+        latex_engine_available("xelatex")
+        or latex_engine_available("lualatex")
+        or language == "ru"
+        or contains_cyrillic_characters(latex_content)
+        or contains_unicode_math_characters(latex_content)
+        or contains_non_ascii_characters(latex_content)
+    )
+    engines = ["xelatex", "lualatex", "pdflatex"] if prefer_unicode else ["pdflatex"]
+    return [engine for engine in engines if latex_engine_available(engine)]
+
+
 def make_ascii_safe_latex(latex_content: str) -> str:
     ascii_safe = latex_content
 
@@ -266,57 +585,189 @@ def make_ascii_safe_latex(latex_content: str) -> str:
     return "".join(converted)
 
 
-def make_unicode_engine_latex(latex_content: str, language: str) -> str:
-    polyglossia_language = "russian" if language == "ru" else "english"
-    other_language = "english" if language == "ru" else "russian"
-    unicode_setup = "\n".join(
-        [
-            r"\usepackage{fontspec}",
-            r"\usepackage{polyglossia}",
-            fr"\setmainlanguage{{{polyglossia_language}}}",
-            fr"\setotherlanguage{{{other_language}}}",
-            r"\defaultfontfeatures{Ligatures=TeX}",
-            r"\IfFontExistsTF{Times New Roman}{\setmainfont{Times New Roman}}{%",
-            r"  \IfFontExistsTF{Georgia}{\setmainfont{Georgia}}{%",
-            r"    \IfFontExistsTF{Arial}{\setmainfont{Arial}}{%",
-            r"      \IfFontExistsTF{DejaVu Serif}{\setmainfont{DejaVu Serif}}{%",
-            r"        \IfFontExistsTF{Liberation Serif}{\setmainfont{Liberation Serif}}{%",
-            r"          \setmainfont{Latin Modern Roman}%",
-            r"        }%",
-            r"      }%",
-            r"    }%",
-            r"  }%",
-            r"}",
-        ]
-    )
+def _consume_latex_command(text: str, start_index: int) -> tuple[str, int]:
+    if start_index >= len(text) or text[start_index] != "\\":
+        return "", start_index
 
-    unicode_ready = re.sub(
-        r"\\usepackage\[[^\]]*\]\{inputenc\}\s*",
-        lambda _match: unicode_setup + "\n",
-        latex_content,
-        count=1,
-    )
-    unicode_ready = re.sub(r"\\usepackage\[[^\]]*\]\{fontenc\}\s*", "", unicode_ready)
-    unicode_ready = re.sub(r"\\usepackage\[[^\]]*\]\{babel\}\s*", "", unicode_ready)
+    if start_index + 1 >= len(text):
+        return "\\", start_index + 1
 
-    if r"\usepackage{fontspec}" in unicode_ready:
-        return unicode_ready
+    next_char = text[start_index + 1]
+    if next_char.isalpha() or next_char == "@":
+        end_index = start_index + 2
+        while end_index < len(text) and (text[end_index].isalpha() or text[end_index] == "@"):
+            end_index += 1
+        if end_index < len(text) and text[end_index] == "*":
+            end_index += 1
+        return text[start_index:end_index], end_index
 
-    documentclass_match = re.search(
-        r"(\\documentclass(?:\[[^\]]*\])?\{[^{}]+\})",
-        unicode_ready,
+    return text[start_index : start_index + 2], start_index + 2
+
+
+def _normalize_script_sequence(sequence: str, mapping: dict[str, str]) -> str:
+    return "".join(mapping.get(char, char) for char in sequence)
+
+
+def _normalize_math_base(base: str) -> str:
+    if len(base) == 1 and base in UNICODE_GREEK_MAP:
+        return UNICODE_GREEK_MAP[base]
+    if len(base) == 1 and base in UNICODE_MATH_TEXT_MAP:
+        return UNICODE_MATH_TEXT_MAP[base]
+    return base
+
+
+def _replace_text_math_tokens(text_segment: str) -> str:
+    def replacer(match: re.Match[str]) -> str:
+        base = match.group("base")
+        sub = match.group("sub") or ""
+        sup = match.group("sup") or ""
+        is_greek_or_math_symbol = len(base) == 1 and (base in UNICODE_GREEK_MAP or base in UNICODE_MATH_TEXT_MAP)
+
+        if not sub and not sup and not is_greek_or_math_symbol:
+            return match.group(0)
+
+        math_token = _normalize_math_base(base)
+        if sub:
+            math_token += f"_{{{_normalize_script_sequence(sub, UNICODE_SUBSCRIPT_MAP)}}}"
+        if sup:
+            math_token += f"^{{{_normalize_script_sequence(sup, UNICODE_SUPERSCRIPT_MAP)}}}"
+        return rf"\ensuremath{{{math_token}}}"
+
+    return TEXT_MATH_TOKEN_PATTERN.sub(replacer, text_segment)
+
+
+def normalize_text_unicode_segment(text_segment: str) -> str:
+    normalized = _replace_text_math_tokens(text_segment)
+    output: list[str] = []
+    index = 0
+
+    while index < len(normalized):
+        char = normalized[index]
+
+        if char == "\\":
+            command, index = _consume_latex_command(normalized, index)
+            output.append(command)
+            continue
+
+        if char in UNICODE_MATH_TEXT_MAP:
+            output.append(rf"\ensuremath{{{UNICODE_MATH_TEXT_MAP[char]}}}")
+        elif char in UNICODE_GREEK_MAP:
+            output.append(rf"\ensuremath{{{UNICODE_GREEK_MAP[char]}}}")
+        elif char in UNICODE_MATH_OPERATOR_MAP:
+            output.append(rf"\ensuremath{{{UNICODE_MATH_OPERATOR_MAP[char]}}}")
+        elif char in UNICODE_SUBSCRIPT_MAP:
+            start = index
+            while index < len(normalized) and normalized[index] in UNICODE_SUBSCRIPT_MAP:
+                index += 1
+            output.append(rf"\ensuremath{{_{{{_normalize_script_sequence(normalized[start:index], UNICODE_SUBSCRIPT_MAP)}}}}}")
+            continue
+        elif char in UNICODE_SUPERSCRIPT_MAP:
+            start = index
+            while index < len(normalized) and normalized[index] in UNICODE_SUPERSCRIPT_MAP:
+                index += 1
+            output.append(rf"\ensuremath{{^{{{_normalize_script_sequence(normalized[start:index], UNICODE_SUPERSCRIPT_MAP)}}}}}")
+            continue
+        elif char in UNICODE_LATEX_REPLACEMENTS:
+            output.append(UNICODE_LATEX_REPLACEMENTS[char])
+        else:
+            output.append(char)
+        index += 1
+
+    return "".join(output)
+
+
+def normalize_math_unicode_segment(math_segment: str) -> str:
+    output: list[str] = []
+    index = 0
+
+    while index < len(math_segment):
+        char = math_segment[index]
+
+        if char == "\\":
+            command, index = _consume_latex_command(math_segment, index)
+            output.append(command)
+            continue
+
+        if char in UNICODE_MATH_TEXT_MAP:
+            output.append(UNICODE_MATH_TEXT_MAP[char])
+        elif char in UNICODE_GREEK_MAP:
+            output.append(UNICODE_GREEK_MAP[char])
+        elif char in UNICODE_MATH_OPERATOR_MAP:
+            output.append(UNICODE_MATH_OPERATOR_MAP[char])
+        elif char in UNICODE_SUBSCRIPT_MAP:
+            start = index
+            while index < len(math_segment) and math_segment[index] in UNICODE_SUBSCRIPT_MAP:
+                index += 1
+            output.append(f"_{{{_normalize_script_sequence(math_segment[start:index], UNICODE_SUBSCRIPT_MAP)}}}")
+            continue
+        elif char in UNICODE_SUPERSCRIPT_MAP:
+            start = index
+            while index < len(math_segment) and math_segment[index] in UNICODE_SUPERSCRIPT_MAP:
+                index += 1
+            output.append(f"^{{{_normalize_script_sequence(math_segment[start:index], UNICODE_SUPERSCRIPT_MAP)}}}")
+            continue
+        elif char in UNICODE_LATEX_REPLACEMENTS:
+            replacement = UNICODE_LATEX_REPLACEMENTS[char]
+            if replacement.startswith(r"\ensuremath{") and replacement.endswith("}"):
+                replacement = replacement[len(r"\ensuremath{") : -1]
+            output.append(replacement)
+        else:
+            output.append(char)
+        index += 1
+
+    return "".join(output)
+
+
+def split_latex_math_segments(latex_content: str) -> list[tuple[bool, str]]:
+    math_patterns = [
+        r"\\\(.+?\\\)",
+        r"\\\[.+?\\\]",
+        r"\$\$.*?\$\$",
+        r"(?<!\$)\$(?:\\.|[^$\\])+\$",
+    ]
+    math_patterns.extend(
+        rf"\\begin\{{{re.escape(environment)}\}}.*?\\end\{{{re.escape(environment)}\}}"
+        for environment in MATH_ENVIRONMENTS
     )
-    if documentclass_match:
-        insert_at = documentclass_match.end()
-        return (
-            unicode_ready[:insert_at]
-            + "\n\n"
-            + unicode_setup
-            + "\n"
-            + unicode_ready[insert_at:]
+    math_pattern = re.compile("(" + "|".join(math_patterns) + ")", flags=re.DOTALL)
+
+    segments: list[tuple[bool, str]] = []
+    last_index = 0
+    for match in math_pattern.finditer(latex_content):
+        if match.start() > last_index:
+            segments.append((False, latex_content[last_index : match.start()]))
+        segments.append((True, match.group(0)))
+        last_index = match.end()
+
+    if last_index < len(latex_content):
+        segments.append((False, latex_content[last_index:]))
+
+    return segments
+
+
+def normalize_unicode_latex_document(latex_content: str) -> LatexPreparationResult:
+    normalized = unicodedata.normalize("NFC", latex_content)
+    notes: list[str] = []
+    if normalized != latex_content:
+        notes.append("Applied Unicode NFC normalization.")
+
+    rebuilt_segments: list[str] = []
+    changed_segments = False
+    for is_math, segment in split_latex_math_segments(normalized):
+        normalized_segment = (
+            normalize_math_unicode_segment(segment)
+            if is_math
+            else normalize_text_unicode_segment(segment)
         )
+        if normalized_segment != segment:
+            changed_segments = True
+        rebuilt_segments.append(normalized_segment)
 
-    return unicode_setup + "\n" + unicode_ready
+    rebuilt = "".join(rebuilt_segments)
+    if changed_segments:
+        notes.append("Normalized raw Unicode math symbols, Greek letters, and script digits.")
+
+    return LatexPreparationResult(tex=rebuilt, notes=notes)
 
 
 def simplify_latex_math(math_content: str) -> str:
@@ -643,47 +1094,58 @@ def latex_to_fallback_pdf(latex_content: str, title: str | None = None) -> bytes
     return text_to_pdf_bytes(readable_text, title=title)
 
 
-def latex_to_pdf(latex_content: str, engine: str = "pdflatex") -> bytes:
+def latex_to_pdf(latex_content: str, engine: str = "pdflatex") -> tuple[bytes, str]:
     with tempfile.TemporaryDirectory() as temp_dir:
         tex_path = os.path.join(temp_dir, "file.tex")
         pdf_path = os.path.join(temp_dir, "file.pdf")
+        diagnostics_lines = [
+            f"engine={engine}",
+            f"temp_dir={temp_dir}",
+            f"tex_path={tex_path}",
+        ]
 
         with open(tex_path, "w", encoding="utf-8", errors="replace") as f:
             f.write(latex_content)
 
-        # Первый прогон pdflatex
-        result_1 = subprocess.run(
-            get_latex_base_command(engine)
-            + ["-halt-on-error", "-interaction=nonstopmode", "-file-line-error", "file.tex"],
-            cwd=temp_dir,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=45,
-        )
+        compiler_command = get_latex_base_command(engine) + [
+            "-halt-on-error",
+            "-interaction=nonstopmode",
+            "-file-line-error",
+            "file.tex",
+        ]
+        diagnostics_lines.append(f"command={' '.join(compiler_command)}")
 
-        if result_1.returncode != 0 or not os.path.exists(pdf_path):
-            raise RuntimeError(format_latex_error(result_1))
+        last_result: subprocess.CompletedProcess[str] | None = None
+        for pass_index in (1, 2):
+            result = subprocess.run(
+                compiler_command,
+                cwd=temp_dir,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=45,
+            )
+            last_result = result
+            diagnostics_lines.append(f"pass={pass_index} returncode={result.returncode}")
+            combined_output = f"{result.stdout}\n{result.stderr}".strip()
+            if combined_output:
+                diagnostics_lines.append(combined_output[-4000:])
 
-        result_2 = subprocess.run(
-            get_latex_base_command(engine)
-            + ["-halt-on-error", "-interaction=nonstopmode", "-file-line-error", "file.tex"],
-            cwd=temp_dir,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=45,
-        )
-
-        if result_2.returncode != 0 or not os.path.exists(pdf_path):
-            raise RuntimeError(format_latex_error(result_2))
+            if result.returncode != 0 or not os.path.exists(pdf_path):
+                raise LatexCompilationError(
+                    engine=engine,
+                    summary=format_latex_error(result),
+                    diagnostics="\n\n".join(diagnostics_lines),
+                )
 
         with open(pdf_path, "rb") as f:
             pdf_bytes = f.read()
 
-        return pdf_bytes
+        if last_result is not None:
+            diagnostics_lines.append(f"pdf_size={len(pdf_bytes)}")
+
+        return pdf_bytes, "\n\n".join(diagnostics_lines)
 
 
 def sanitize_generated_latex(latex_content: str) -> str:
@@ -752,10 +1214,19 @@ def escape_unescaped_ampersands(tex_content: str) -> str:
     return prefix + "\n".join(escaped_lines) + suffix
 
 
-def repair_latex_document(tex_content: str) -> str:
+def prepare_latex_document(tex_content: str, language: str) -> LatexPreparationResult:
+    notes: list[str] = []
     repaired = sanitize_generated_latex(tex_content)
-    repaired = escape_unescaped_ampersands(repaired)
-    return repaired
+    unicode_prepared = normalize_unicode_latex_document(repaired)
+    repaired = escape_unescaped_ampersands(unicode_prepared.tex)
+    repaired = ensure_multilingual_latex_preamble(repaired, language)
+    notes.extend(unicode_prepared.notes)
+    notes.append(f"Ensured multilingual LaTeX preamble for {language}.")
+    return LatexPreparationResult(tex=repaired.strip(), notes=notes)
+
+
+def repair_latex_document(tex_content: str, language: str = "en") -> str:
+    return prepare_latex_document(tex_content, language).tex
 
 
 def validate_complete_latex(tex_content: str) -> None:
@@ -789,6 +1260,60 @@ def format_latex_error(result: subprocess.CompletedProcess[str]) -> str:
         return f"PDF was not generated.\n{tail}".strip()
 
     return "PDF was not generated.\n" + "\n".join(relevant_lines[:10])
+
+
+async def compile_latex_pdf(
+    latex_content: str,
+    language: str,
+    logger: Logger,
+) -> tuple[typing.Optional[bytes], typing.Optional[str]]:
+    engines = get_preferred_latex_engines(latex_content, language)
+    if not engines:
+        return None, (
+            "PDF generation skipped: no LaTeX engine (pdflatex, xelatex, or lualatex) was found in PATH. "
+            "Returning only .tex file."
+        )
+
+    errors: list[str] = []
+    primary_engine = engines[0]
+    await logger.partial_result(
+        f"Selected {primary_engine} as the primary LaTeX engine for this document."
+    )
+
+    for attempt_index, engine in enumerate(engines):
+        is_primary = attempt_index == 0
+        stage_code = "pdf" if is_primary else "pdf_retry"
+        stage_progress = 25 if is_primary else min(95, 45 + attempt_index * 18)
+        await logger.stage(stage_code, stage_progress)
+        await logger.partial_result(f"Compiling PDF with {engine}...")
+
+        try:
+            pdf_bytes, diagnostics = latex_to_pdf(latex_content, engine=engine)
+            await logger.file(
+                f"latex_compile_{engine}_success",
+                diagnostics,
+                Logger.FileType.TEXT,
+            )
+            await logger.stage(stage_code, 100)
+            await logger.partial_result(f"PDF compilation succeeded with {engine}.")
+            return pdf_bytes, None
+        except LatexCompilationError as exc:
+            await logger.file(
+                f"latex_compile_{engine}_failure",
+                exc.diagnostics,
+                Logger.FileType.TEXT,
+            )
+            errors.append(f"{engine}: {exc.summary}")
+            if attempt_index < len(engines) - 1:
+                await logger.partial_result(
+                    f"{engine} could not compile the document. Trying the next LaTeX engine..."
+                )
+            else:
+                await logger.partial_result(
+                    f"{engine} could not compile the document."
+                )
+
+    return None, "\n".join(errors)
 
 
 async def split_into_chunks(transcript: str, logger: Logger = Logger()) -> typing.List[str]:
@@ -956,14 +1481,30 @@ async def process(
         await logger.progress(2 + len(results), 2 + len(chunks))
 
     tex = tex_template.replace("%% <INSERT CONTENT HERE>", "\n\n".join(results))
-    tex = repair_latex_document(normalize_latex_text(tex))
+    prepared_initial = prepare_latex_document(normalize_latex_text(tex), language)
+    tex = prepared_initial.tex
+    await logger.file(
+        "latex_preparation_before_postprocess",
+        "\n".join(prepared_initial.notes) or "No preparation changes were needed.",
+        Logger.FileType.TEXT,
+    )
+    if prepared_initial.notes:
+        await logger.partial_result(
+            "Normalized Unicode text and formulas for multilingual LaTeX compilation."
+        )
 
     await logger.file("lecture_before_postprocess", tex, Logger.FileType.TEX)
 
     try:
-        tex_postprocessed = await postprocess_summary(tex, ai, language, logger)
-        tex_postprocessed = repair_latex_document(tex_postprocessed)
+        tex_postprocessed_raw = await postprocess_summary(tex, ai, language, logger)
+        prepared_postprocessed = prepare_latex_document(tex_postprocessed_raw, language)
+        tex_postprocessed = prepared_postprocessed.tex
         validate_complete_latex(tex_postprocessed)
+        await logger.file(
+            "latex_preparation_after_postprocess",
+            "\n".join(prepared_postprocessed.notes) or "No preparation changes were needed.",
+            Logger.FileType.TEXT,
+        )
         await logger.file("lecture", tex_postprocessed, Logger.FileType.TEX)
     except Exception as e:
         await logger.stage("postprocess", 100)
@@ -991,87 +1532,17 @@ async def process(
         )
 
     pdf_source_tex = tex_postprocessed
-    error_msg: str | None = None
-
-    if latex_engine_available("pdflatex"):
-        try:
-            await logger.stage("pdf", 15)
-            pdf = latex_to_pdf(tex_postprocessed)
-            await logger.stage("pdf", 100)
-            await logger.file("lecture", pdf, Logger.FileType.PDF)
-            return ProcessResult(
-                transcript=transcript,
-                language=language,
-                title=summary.title,
-                abstract=summary.abstract,
-                tex=tex_postprocessed,
-                pdf=pdf,
-            )
-        except Exception as e:
-            error_msg = f"Failed to convert LaTeX to PDF: {e}"
-            await logger.partial_result(error_msg)
-            fallback_tex = repair_latex_document(tex)
-
-            if fallback_tex != tex_postprocessed:
-                try:
-                    await logger.stage("pdf_retry", 30)
-                    await logger.partial_result(
-                        "Retrying PDF generation with a safer LaTeX cleanup pass..."
-                    )
-                    pdf = latex_to_pdf(fallback_tex)
-                    await logger.stage("pdf_retry", 100)
-                    await logger.file("lecture_retry", fallback_tex, Logger.FileType.TEX)
-                    await logger.file("lecture_retry", pdf, Logger.FileType.PDF)
-                    return ProcessResult(
-                        transcript=transcript,
-                        language=language,
-                        title=summary.title,
-                        abstract=summary.abstract,
-                        tex=fallback_tex,
-                        pdf=pdf,
-                    )
-                except Exception as retry_error:
-                    error_msg = f"Retry after cleanup also failed: {retry_error}"
-                    await logger.partial_result(error_msg)
-                    pdf_source_tex = fallback_tex
-    else:
-        error_msg = (
-            "PDF generation via pdflatex skipped: pdflatex is not installed or not found in PATH."
+    pdf, error_msg = await compile_latex_pdf(pdf_source_tex, language, logger)
+    if pdf is not None:
+        await logger.file("lecture", pdf, Logger.FileType.PDF)
+        return ProcessResult(
+            transcript=transcript,
+            language=language,
+            title=summary.title,
+            abstract=summary.abstract,
+            tex=pdf_source_tex,
+            pdf=pdf,
         )
-        await logger.partial_result(error_msg)
-        fallback_tex = repair_latex_document(tex)
-        if fallback_tex != tex_postprocessed:
-            pdf_source_tex = fallback_tex
-
-    if contains_non_ascii_characters(pdf_source_tex) or not latex_engine_available("pdflatex"):
-        for engine in ("xelatex", "lualatex"):
-            if not latex_engine_available(engine):
-                continue
-            try:
-                await logger.stage("pdf_retry", 55 if engine == "xelatex" else 70)
-                await logger.partial_result(
-                    f"Retrying PDF generation with {engine} Unicode support..."
-                )
-                unicode_tex = make_unicode_engine_latex(pdf_source_tex, language)
-                pdf = latex_to_pdf(unicode_tex, engine=engine)
-                await logger.stage("pdf_retry", 100)
-                await logger.file(
-                    f"lecture_{engine}_unicode",
-                    unicode_tex,
-                    Logger.FileType.TEX,
-                )
-                await logger.file("lecture", pdf, Logger.FileType.PDF)
-                return ProcessResult(
-                    transcript=transcript,
-                    language=language,
-                    title=summary.title,
-                    abstract=summary.abstract,
-                    tex=pdf_source_tex,
-                    pdf=pdf,
-                )
-            except Exception as unicode_retry_error:
-                error_msg = f"{engine} Unicode PDF retry also failed: {unicode_retry_error}"
-                await logger.partial_result(error_msg)
 
     fallback_warning = (
         "PDF was generated in a readable fallback layout because LaTeX compilation failed. "
@@ -1112,12 +1583,17 @@ async def process(
                 await logger.partial_result(
                     "Retrying PDF generation with an ASCII-safe transliteration fallback..."
                 )
-                pdf = latex_to_pdf(ascii_fallback_tex)
+                pdf, diagnostics = latex_to_pdf(ascii_fallback_tex)
                 await logger.stage("pdf_retry", 100)
                 await logger.file(
                     "lecture_ascii_fallback",
                     ascii_fallback_tex,
                     Logger.FileType.TEX,
+                )
+                await logger.file(
+                    "latex_compile_ascii_fallback_success",
+                    diagnostics,
+                    Logger.FileType.TEXT,
                 )
                 await logger.file("lecture", pdf, Logger.FileType.PDF)
                 await logger.partial_result(transliteration_warning)
@@ -1130,7 +1606,12 @@ async def process(
                     pdf=pdf,
                     pdf_warning=transliteration_warning,
                 )
-            except Exception as ascii_retry_error:
+            except LatexCompilationError as ascii_retry_error:
+                await logger.file(
+                    "latex_compile_ascii_fallback_failure",
+                    ascii_retry_error.diagnostics,
+                    Logger.FileType.TEXT,
+                )
                 error_msg = f"ASCII-safe PDF retry also failed: {ascii_retry_error}"
                 await logger.partial_result(error_msg)
 

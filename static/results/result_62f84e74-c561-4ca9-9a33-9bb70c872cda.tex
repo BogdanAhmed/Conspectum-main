@@ -1,0 +1,204 @@
+\documentclass[a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{xcolor}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5em}
+
+\definecolor{thmcolor}{RGB}{220,235,255}
+\definecolor{defcolor}{RGB}{232,247,228}
+\definecolor{excolor}{RGB}{255,244,220}
+
+\providecommand{\mathbb}[1]{\mathbf{#1}}
+\providecommand{\mathcal}[1]{\mathit{#1}}
+\newcommand{\cref}[1]{\ref{#1}}
+\newcommand{\toprule}{\hline}
+\newcommand{\midrule}{\hline}
+\newcommand{\bottomrule}{\hline}
+\newcommand{\href}[2]{#2}
+\newcommand{\url}[1]{\texttt{#1}}
+\renewcommand{\labelitemi}{-}
+\renewcommand{\labelitemii}{--}
+
+\newcommand{\boxheading}[1]{%
+  \par\smallskip
+  \noindent\textbf{\ifx&#1&Note\else#1\fi}\par
+  \smallskip
+}
+
+% Theorem environment
+\newtheorem{theorem}{Теорема}[section]
+\newenvironment{thmbox}[1][]{%
+  \begin{quote}\color{blue!60!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Definition environment
+\newtheorem{definition}{Определение}[section]
+\newenvironment{defbox}[1][]{%
+  \begin{quote}\color{green!40!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Lemma environment
+\newtheorem{lemma}{Лемма}[section]
+\newenvironment{lembox}[1][]{%
+  \begin{quote}\color{orange!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Proposition environment
+\newtheorem{proposition}{Утверждение}[section]
+\newenvironment{propbox}[1][]{%
+  \begin{quote}\color{violet!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Corollary environment
+\newtheorem{corollary}{Следствие}[section]
+\newenvironment{corbox}[1][]{%
+  \begin{quote}\color{cyan!50!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Example environment
+\newtheorem{example}{Пример}[section]
+\newenvironment{exbox}[1][]{%
+  \begin{quote}\color{brown!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Remark environment
+\newtheorem{remark}{Замечание}[section]
+\newenvironment{rembox}[1][]{%
+  \begin{quote}\color{black!70}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Customize enumerate and itemize
+% Custom table environment with caption, placement, and column spec
+\newenvironment{customtable}[3][htbp]{%
+  % #1 = optional: placement (default: htbp)
+  % #2 = mandatory: column specification (e.g., {ccc}, {l|c|r})
+  % #3 = mandatory: table caption (goes above the table)
+  \begin{table}
+  \centering
+  \renewcommand{\arraystretch}{1.2}
+  \textbf{#3}\par\smallskip
+  \begin{tabular}{#2}
+}{%
+  \end{tabular}
+  \end{table}
+}
+
+% ============================================================
+% DOCUMENT STRUCTURE GUIDELINES
+% ============================================================
+%
+% === 1. DOCUMENT STRUCTURE & FLOW ===
+% - Use \section{}, \subsection{}, \subsubsection{} to mirror lecture flow.
+% - Limit depth: section → subsection → subsubsection (avoid deeper).
+% - Start each section with a 1--2 sentence summary of what follows.
+% - Example:
+%   \section{Introduction}
+%   This section introduces the core concepts of vector spaces...
+
+% === 2. CONTENT ACCURACY ===
+% - Faithfully represent the lecture: definitions, theorems, examples, logic.
+% - Do NOT add external content unless noted (e.g., in footnotes).
+% - Paraphrase for clarity; use direct quotes sparingly.
+
+% === 3. MATHEMATICAL TYPESETTING ===
+% - Always use math mode: $x^2$, \[ \int f(x) dx \], or \begin{equation}.
+% - Number equations only if referenced later (use \label{} and \cref{}).
+% - Use semantic commands: \mathbb{R}, \mathcal{L}, \vec{v}, \nabla, etc.
+% - Example:
+%   \begin{equation}\label{eq:euler}
+%   e^{i\pi} + 1 = 0
+%   \end{equation}
+%   As shown in \cref{eq:euler}, ...
+
+% === 4. CUSTOM ENVIRONMENTS (USE AS INTENDED) ===
+% - \begin{defbox}[Title]     → For definitions (green-tinted).
+% - \begin{thmbox}[Title]     → For theorems/lemmas/propositions (blue-tinted).
+% - \begin{exbox}[Title]      → For examples (beige-tinted).
+% - \begin{rembox}[Title]     → For remarks/notes (gray-tinted).
+%
+% Rules:
+% - Always include a title: \begin{thmbox}[Pythagorean Theorem]}
+% - Keep content concise; avoid long paragraphs inside boxes.
+% - Do NOT nest boxes.
+% - For formal numbering, wrap amsthm environments inside:
+%   \begin{thmbox}[Mean Value Theorem]
+%   \begin{theorem}
+%   Let $f$ be continuous on $[a,b]$...
+%   \end{theorem}
+%   \end{thmbox}
+
+% === 5. LISTS AND ENUMERATIONS ===
+% - Use itemize for unordered key points:
+%   \begin{itemize}
+%     \item Point A
+%     \item Point B
+%   \end{itemize}
+% - Use enumerate for step-by-step procedures:
+%   \begin{enumerate}
+%     \item Step 1: Define domain.
+%     \item Step 2: Compute derivative.
+%   \end{enumerate}
+% - Avoid nesting >2 levels.
+
+% === 6. TABLES (USE customtable) ===
+% - Syntax:
+%   \begin{customtable}[placement]{column-spec}{Caption}
+%   \toprule
+%   Col1 & Col2 & Col3 \\
+%   \midrule
+%   Data & Data & Data \\
+%   \bottomrule
+%   \end{customtable}
+% - Example:
+%   \begin{customtable}[h]{lcc}{Experimental Results}
+%   \toprule
+%   Trial & Input & Output \\
+%   \midrule
+%   1 & 10 & 15 \\
+%   2 & 20 & 30 \\
+%   \bottomrule
+%   \end{customtable}
+% - Use booktabs rules (\toprule, \midrule, \bottomrule).
+% - No vertical lines; align numbers by decimal if needed.
+
+\begin{document}
+
+\begin{center}
+{\LARGE \textbf{Исследование случаев с τ(k₂) < 0 и τ(k₂) > 0 в математическом анализе}}\\[1em]
+\end{center}
+
+\textbf{Abstract.} В лекции рассматриваются два различных случая функции τ(k₂): когда τ(k₂) меньше нуля и когда τ(k₂) больше нуля. Основной целью является понимание поведения функции в зависимости от знака τ(k₂). Обсуждаются ключевые концепции, связанные с анализом функций, а также возможные применения этих случаев в математических моделях. Приводятся примеры, иллюстрирующие различия в поведении функции в каждом из случаев, что позволяет сделать выводы о влиянии знака на свойства функции и её графическое представление. Заключение подчеркивает важность различения этих случаев для дальнейшего анализа и применения в различных областях математики.
+
+\begin{center}
+{\LARGE \textbf{Исследование случаев с τ(k₂) < 0 и τ(k₂) > 0 в математическом анализе}}\\[1em]
+\end{center}
+
+\textbf{Abstract.} В лекции рассматриваются два различных случая функции τ(k₂): когда τ(k₂) меньше нуля и когда τ(k₂) больше нуля. Основной целью является понимание поведения функции в зависимости от знака τ(k₂). Обсуждаются ключевые концепции, связанные с анализом функций, а также возможные применения этих случаев в математических моделях. Приводятся примеры, иллюстрирующие различия в поведении функции в каждом из случаев, что позволяет сделать выводы о влиянии знака на свойства функции и её графическое представление. Заключение подчеркивает важность различения этих случаев для дальнейшего анализа и применения в различных областях математики.
+
+\section{Введение}
+В данном разделе мы рассматриваем функцию τ(k₂) и её поведение в зависимости от знака. Функция τ(k₂) может принимать как отрицательные, так и положительные значения, что существенно влияет на её свойства и графическое представление.
+
+\section{Случай τ(k₂) < 0}
+\subsection{Описание поведения функции}
+Когда τ(k₂) меньше нуля, функция может демонстрировать определённые характеристики, такие как убывание или наличие экстремумов. Важно проанализировать, как это влияет на график функции и её поведение в окрестности критических точек.
+
+\subsection{Примеры}
+\begin{exbox}[Пример 1]
+Рассмотрим функцию τ(k₂) = -k₂^2. В этом случае функция принимает отрицательные значения для всех k₂, что приводит к параболическому графику, открывающемуся вниз.
+\end{exbox}
+
+\section{Случай τ(k₂) > 0}
+\subsection{Описание поведения функции}
+При τ(k₂) больше нуля функция может вести себя совершенно иначе, например, демонстрируя возрастание или наличие локальных минимумов. Это также важно для понимания её графического представления.
+
+\subsection{Примеры}
+\begin{exbox}[Пример 2]
+Рассмотрим функцию τ(k₂) = k₂^2. В этом случае функция принимает положительные значения для всех k₂, что приводит к параболическому графику, открывающемуся вверх.
+\end{exbox}
+
+\section{Заключение}
+В заключение, различие между случаями τ(k₂) < 0 и τ(k₂) > 0 имеет важное значение для анализа функций. Понимание этих случаев позволяет более глубоко исследовать свойства функций и их применение в различных областях математики.\end{document}

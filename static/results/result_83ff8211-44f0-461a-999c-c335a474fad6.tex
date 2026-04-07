@@ -1,53 +1,7 @@
 \documentclass[a4paper]{article}
 
-\usepackage{iftex}
-% <CONSPECTUM LANGUAGE SETUP START>
-\ifPDFTeX
-  \usepackage[utf8]{inputenc}
-  \usepackage[<FONTENC>]{fontenc}
-  \usepackage[<BABEL_LANG>]{babel}
-\else
-  \usepackage{fontspec}
-  \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
-  \IfFontExistsTF{Times New Roman}{
-    \setmainfont{Times New Roman}
-  }{
-    \IfFontExistsTF{Noto Serif}{
-      \setmainfont{Noto Serif}
-    }{
-      \IfFontExistsTF{DejaVu Serif}{
-        \setmainfont{DejaVu Serif}
-      }{
-        \setmainfont{Latin Modern Roman}
-      }
-    }
-  }
-  \IfFontExistsTF{Arial}{
-    \setsansfont{Arial}
-  }{
-    \IfFontExistsTF{Noto Sans}{
-      \setsansfont{Noto Sans}
-    }{
-      \IfFontExistsTF{DejaVu Sans}{
-        \setsansfont{DejaVu Sans}
-      }{
-        \setsansfont{Latin Modern Sans}
-      }
-    }
-  }
-  \IfFontExistsTF{Consolas}{
-    \setmonofont{Consolas}
-  }{
-    \IfFontExistsTF{DejaVu Sans Mono}{
-      \setmonofont{DejaVu Sans Mono}
-    }{
-      \setmonofont{Latin Modern Mono}
-    }
-  }
-\fi
-% <CONSPECTUM LANGUAGE SETUP END>
+\usepackage[utf8]{inputenc}
 \usepackage{amsmath}
-\usepackage{amssymb}
 \usepackage{graphicx}
 \usepackage{xcolor}
 
@@ -76,43 +30,43 @@
 }
 
 % Theorem environment
-\newtheorem{theorem}{<THEOREM_NAME>}[section]
+\newtheorem{theorem}{Теорема}[section]
 \newenvironment{thmbox}[1][]{%
   \begin{quote}\color{blue!60!black}\boxheading{#1}\normalcolor
 }{\end{quote}}
 
 % Definition environment
-\newtheorem{definition}{<DEFINITION_NAME>}[section]
+\newtheorem{definition}{Определение}[section]
 \newenvironment{defbox}[1][]{%
   \begin{quote}\color{green!40!black}\boxheading{#1}\normalcolor
 }{\end{quote}}
 
 % Lemma environment
-\newtheorem{lemma}{<LEMMA_NAME>}[section]
+\newtheorem{lemma}{Лемма}[section]
 \newenvironment{lembox}[1][]{%
   \begin{quote}\color{orange!70!black}\boxheading{#1}\normalcolor
 }{\end{quote}}
 
 % Proposition environment
-\newtheorem{proposition}{<PROPOSITION_NAME>}[section]
+\newtheorem{proposition}{Утверждение}[section]
 \newenvironment{propbox}[1][]{%
   \begin{quote}\color{violet!70!black}\boxheading{#1}\normalcolor
 }{\end{quote}}
 
 % Corollary environment
-\newtheorem{corollary}{<COROLLARY_NAME>}[section]
+\newtheorem{corollary}{Следствие}[section]
 \newenvironment{corbox}[1][]{%
   \begin{quote}\color{cyan!50!black}\boxheading{#1}\normalcolor
 }{\end{quote}}
 
 % Example environment
-\newtheorem{example}{<EXAMPLE_NAME>}[section]
+\newtheorem{example}{Пример}[section]
 \newenvironment{exbox}[1][]{%
   \begin{quote}\color{brown!70!black}\boxheading{#1}\normalcolor
 }{\end{quote}}
 
 % Remark environment
-\newtheorem{remark}{<REMARK_NAME>}[section]
+\newtheorem{remark}{Замечание}[section]
 \newenvironment{rembox}[1][]{%
   \begin{quote}\color{black!70}\boxheading{#1}\normalcolor
 }{\end{quote}}
@@ -140,7 +94,7 @@
 % === 1. DOCUMENT STRUCTURE & FLOW ===
 % - Use \section{}, \subsection{}, \subsubsection{} to mirror lecture flow.
 % - Limit depth: section → subsection → subsubsection (avoid deeper).
-% - Start each section with a 1–2 sentence summary of what follows.
+% - Start each section with a 1--2 sentence summary of what follows.
 % - Example:
 %   \section{Introduction}
 %   This section introduces the core concepts of vector spaces...
@@ -211,15 +165,21 @@
 % - Use booktabs rules (\toprule, \midrule, \bottomrule).
 % - No vertical lines; align numbers by decimal if needed.
 
-
 \begin{document}
 
 \begin{center}
-{\LARGE \textbf{<INSERT TITLE HERE>}}\\[1em]
+{\LARGE \textbf{Анализ случаев с тау k2: меньше и больше нуля}}\\[1em]
 \end{center}
 
-\textbf{<ABSTRACT_LABEL>.} <INSERT ABSTRACT HERE>
+\textbf{Abstract.} В лекции рассматриваются два различных случая значения тау k2: когда оно меньше нуля и когда больше нуля. Основная цель заключается в понимании поведения системы в зависимости от этих условий. Обсуждаются ключевые концепции, связанные с математическими и физическими аспектами, которые влияют на результаты. Лектор приводит примеры, иллюстрирующие различия в динамике системы при каждом из случаев, а также делает выводы о значимости этих различий для дальнейших исследований и приложений в соответствующей области.
 
-%% <INSERT CONTENT HERE>
+\section{Случаи тау k2}
 
-\end{document}
+В этом разделе рассматриваются два случая значения тау k2: 
+
+\begin{itemize}
+    \item Первый случай: $\tau(k_2) < 0$.
+    \item Второй случай: $\tau(k_2) > 0$.
+\end{itemize}
+
+Каждый из этих случаев имеет свои особенности и влияет на поведение системы.\end{document}

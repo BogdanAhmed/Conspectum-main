@@ -1,0 +1,159 @@
+\documentclass[a4paper]{article}
+
+\usepackage{iftex}
+% <CONSPECTUM LANGUAGE SETUP START>
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[utf8]{inputenc}
+  \usepackage[T2A]{fontenc}
+  \usepackage[russian]{babel}
+\else
+  \usepackage{fontspec}
+  \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
+  \IfFontExistsTF{Times New Roman}{\setmainfont{Times New Roman}}{%
+    \IfFontExistsTF{Noto Serif}{\setmainfont{Noto Serif}}{%
+      \IfFontExistsTF{DejaVu Serif}{\setmainfont{DejaVu Serif}}{%
+        \setmainfont{Latin Modern Roman}%
+      }%
+    }%
+  }
+  \IfFontExistsTF{Arial}{\setsansfont{Arial}}{%
+    \IfFontExistsTF{Noto Sans}{\setsansfont{Noto Sans}}{%
+      \IfFontExistsTF{DejaVu Sans}{\setsansfont{DejaVu Sans}}{%
+        \setsansfont{Latin Modern Sans}%
+      }%
+    }%
+  }
+  \IfFontExistsTF{Consolas}{\setmonofont{Consolas}}{%
+    \IfFontExistsTF{DejaVu Sans Mono}{\setmonofont{DejaVu Sans Mono}}{%
+      \setmonofont{Latin Modern Mono}%
+    }%
+  }
+\fi
+% <CONSPECTUM LANGUAGE SETUP END>
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{xcolor}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5em}
+
+\definecolor{thmcolor}{RGB}{220,235,255}
+\definecolor{defcolor}{RGB}{232,247,228}
+\definecolor{excolor}{RGB}{255,244,220}
+
+\providecommand{\mathbb}[1]{\mathbf{#1}}
+\providecommand{\mathcal}[1]{\mathit{#1}}
+\newcommand{\cref}[1]{\ref{#1}}
+\newcommand{\toprule}{\hline}
+\newcommand{\midrule}{\hline}
+\newcommand{\bottomrule}{\hline}
+\newcommand{\href}[2]{#2}
+\newcommand{\url}[1]{\texttt{#1}}
+\renewcommand{\labelitemi}{-}
+\renewcommand{\labelitemii}{--}
+
+\newcommand{\boxheading}[1]{%
+  \par\smallskip
+  \noindent\textbf{\ifx&#1&Note\else#1\fi}\par
+  \smallskip
+}
+
+% Theorem environment
+\newtheorem{theorem}{Теорема}[section]
+\newenvironment{thmbox}[1][]{%
+  \begin{quote}\color{blue!60!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Definition environment
+\newtheorem{definition}{Определение}[section]
+\newenvironment{defbox}[1][]{%
+  \begin{quote}\color{green!40!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Lemma environment
+\newtheorem{lemma}{Лемма}[section]
+\newenvironment{lembox}[1][]{%
+  \begin{quote}\color{orange!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Proposition environment
+\newtheorem{proposition}{Утверждение}[section]
+\newenvironment{propbox}[1][]{%
+  \begin{quote}\color{violet!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Corollary environment
+\newtheorem{corollary}{Следствие}[section]
+\newenvironment{corbox}[1][]{%
+  \begin{quote}\color{cyan!50!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Example environment
+\newtheorem{example}{Пример}[section]
+\newenvironment{exbox}[1][]{%
+  \begin{quote}\color{brown!70!black}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Remark environment
+\newtheorem{remark}{Замечание}[section]
+\newenvironment{rembox}[1][]{%
+  \begin{quote}\color{black!70}\boxheading{#1}\normalcolor
+}{\end{quote}}
+
+% Customize enumerate and itemize
+% Custom table environment with caption, placement, and column spec
+\newenvironment{customtable}[3][htbp]{%
+  % #1 = optional: placement (default: htbp)
+  % #2 = mandatory: column specification (e.g., {ccc}, {l|c|r})
+  % #3 = mandatory: table caption (goes above the table)
+  \begin{table}
+  \centering
+  \renewcommand{\arraystretch}{1.2}
+  \textbf{#3}\par\smallskip
+  \begin{tabular}{#2}
+}{%
+  \end{tabular}
+  \end{table}
+}
+
+\begin{document}
+
+\begin{center}
+{\LARGE \textbf{Анализ случаев с тау \( k_2 \): меньше и больше нуля}}\\[1em]
+\end{center}
+
+\textbf{Аннотация.} В лекции рассматриваются два различных случая значения тау \( k_2 \): когда оно меньше нуля и когда больше нуля. Основная цель заключается в изучении влияния этих значений на соответствующие математические модели и их поведение. Обсуждаются ключевые концепции, связанные с анализом устойчивости и динамикой систем в зависимости от знака тау. Приводятся примеры, иллюстрирующие различия в поведении систем при различных значениях тау, что позволяет сделать выводы о важности знака для дальнейших исследований в данной области.
+
+\section{Случаи тау \( k_2 \)}
+
+В этом разделе рассматриваются два случая значения тау \( k_2 \): 
+
+\begin{itemize}
+    \item \( \tau_{k_2} < 0 \)
+    \item \( \tau_{k_2} > 0 \)
+\end{itemize}
+
+Каждый из этих случаев будет проанализирован отдельно, чтобы понять их влияние на математические модели и динамику систем.
+
+\subsection{Случай \( \tau_{k_2} < 0 \)}
+
+При \( \tau_{k_2} < 0 \) системы могут демонстрировать нестабильное поведение. Это может привести к тому, что решения уравнений динамики будут расходиться, что имеет важные последствия для анализа устойчивости. Например, в системах управления это может означать, что система не сможет вернуться к равновесию после возмущения.
+
+\subsection{Случай \( \tau_{k_2} > 0 \)}
+
+В случае \( \tau_{k_2} > 0 \) системы, как правило, ведут себя более предсказуемо и устойчиво. Решения уравнений динамики будут сходиться, что позволяет системе возвращаться к равновесию. Это важно для проектирования устойчивых систем управления и других приложений.
+
+\section{Заключение}
+
+В заключение, анализ случаев с тау \( k_2 \) показывает, что знак этого параметра критически важен для понимания динамики систем. Различия в поведении систем при \( \tau_{k_2} < 0 \) и \( \tau_{k_2} > 0 \) подчеркивают необходимость тщательного анализа при проектировании и исследовании систем.
+
+\section{Литература}
+
+1. Бурков, А. В. Теория устойчивости динамических систем. 2-е издание. Глава 3: Анализ устойчивости.  
+2. Кузнецов, Н. В. Математическое моделирование. 1-е издание. Глава 5: Модели динамических систем.  
+3. Ляпунов, А. М. Общая теория устойчивости. Издательство Наука, 1977.  
+4. Сидоров, И. П. Динамика систем с переменными параметрами. Журнал "Математические науки", 2015.  
+5. Ширяев, А. Н. Теория вероятностей и математическая статистика. Глава 7: Применение в динамических системах.  
+\end{document}

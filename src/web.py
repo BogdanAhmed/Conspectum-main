@@ -1,24 +1,33 @@
 import asyncio
+import logging
 import ipaddress
 import io
 import json
 import os
 import re
+import socket
 import ssl
+import time
 import uuid
 import zipfile
+from collections import deque
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from threading import Lock
 from typing import Dict, List, Optional
 from urllib.parse import unquote, urlparse
 
 import httpx
 import openai
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from conspectum.logger import Logger
 from conspectum.process import process
+from conspectum.summary import SUPPORTED_AUDIO_EXTENSIONS
 from conspectum.summary import guess_audio_suffix
 from conspectum.summary import is_supported_audio
 
@@ -27,14 +36,112 @@ load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
+RESULTS_DIR = os.path.join(STATIC_DIR, "results")
 LOGS_DIR = os.path.join(BASE_DIR, "logs")
 TEMPLATE_PATH = os.path.join(BASE_DIR, "src", "web_template.html")
+APP_ENV = os.environ.get("APP_ENV", "development").strip().lower()
+IS_PRODUCTION = APP_ENV == "production"
+ENABLE_API_DOCS = os.environ.get(
+    "ENABLE_API_DOCS",
+    "0" if IS_PRODUCTION else "1",
+).strip().lower() in {"1", "true", "yes"}
+MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_BYTES", str(512 * 1024 * 1024)))
 REMOTE_AUDIO_MAX_BYTES = int(
-    os.environ.get("REMOTE_AUDIO_MAX_BYTES", str(512 * 1024 * 1024))
+    os.environ.get("REMOTE_AUDIO_MAX_BYTES", str(MAX_UPLOAD_BYTES))
 )
+MAX_REMOTE_URL_LENGTH = int(os.environ.get("MAX_REMOTE_URL_LENGTH", "2048"))
+MAX_REMOTE_REDIRECTS = int(os.environ.get("MAX_REMOTE_REDIRECTS", "4"))
+SECURE_HSTS_SECONDS = int(
+    os.environ.get(
+        "SECURE_HSTS_SECONDS",
+        "31536000" if IS_PRODUCTION else "0",
+    )
+)
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get("ALLOWED_HOSTS", "").split(",")
+    if host.strip()
+]
 
 VALID_DETAIL_LEVELS = {"brief", "standard", "detailed"}
 VALID_LANGUAGES = {"en", "ru"}
+UPLOAD_READ_CHUNK_SIZE = 1024 * 1024
+SAFE_TEXT_LIMIT = 500
+SAFE_FILENAME_LIMIT = 120
+PUBLIC_TASK_FIELDS = {
+    "task_id",
+    "status",
+    "messages",
+    "progress",
+    "stage_code",
+    "stage",
+    "bundle_url",
+    "tex_url",
+    "pdf_url",
+    "transcript_url",
+    "title",
+    "language",
+    "detail",
+    "error",
+    "warning",
+    "source_mode",
+    "source_name",
+    "audio_size_bytes",
+    "abstract",
+    "transcript_preview",
+    "transcript_words",
+    "abstract_words",
+    "created_at",
+    "updated_at",
+    "completed_at",
+    "duration_seconds",
+}
+STATIC_ASSET_FILENAMES = {"web.css", "web.js"}
+GENERATED_ARTIFACT_RE = re.compile(
+    r"^(?:transcript|result)_[0-9a-fA-F-]{36}\.(?:txt|tex|pdf)$"
+)
+SUSPICIOUS_DOUBLE_EXTENSIONS = {
+    ".apk",
+    ".app",
+    ".bat",
+    ".cmd",
+    ".com",
+    ".dll",
+    ".exe",
+    ".hta",
+    ".jar",
+    ".js",
+    ".jse",
+    ".msi",
+    ".php",
+    ".ps1",
+    ".py",
+    ".rb",
+    ".scr",
+    ".sh",
+    ".svg",
+    ".vbs",
+    ".wsf",
+}
+PUBLIC_ERROR_REDACTIONS = [
+    (re.compile(r"sk-[A-Za-z0-9_-]+"), "[redacted-api-key]"),
+    (re.compile(r"user_[A-Za-z0-9]+"), "[redacted-user-id]"),
+]
+SECURITY_CSP = "; ".join(
+    [
+        "default-src 'self'",
+        "base-uri 'self'",
+        "connect-src 'self'",
+        "font-src 'self' data:",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+        "img-src 'self' data:",
+        "media-src 'self'",
+        "object-src 'none'",
+        "script-src 'self'",
+        "style-src 'self' 'unsafe-inline'",
+    ]
+)
 
 TASK_STAGE_CONFIG = {
     "queued": {"label": "В очереди", "start": 2, "end": 4},
@@ -57,15 +164,23 @@ TASK_STAGE_CONFIG = {
 DEFAULT_STAGE_CODE = "queued"
 
 os.makedirs(STATIC_DIR, exist_ok=True)
+os.makedirs(RESULTS_DIR, exist_ok=True)
 os.makedirs(LOGS_DIR, exist_ok=True)
 
 app = FastAPI(
     title="Conspectum Web",
     description="Premium web interface for turning lecture audio into transcript, LaTeX, and PDF outputs.",
+    docs_url="/docs" if ENABLE_API_DOCS else None,
+    redoc_url="/redoc" if ENABLE_API_DOCS else None,
+    openapi_url="/openapi.json" if ENABLE_API_DOCS else None,
 )
+
+if ALLOWED_HOSTS:
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
 
 tasks: Dict[str, dict] = {}
 TASK_TTL = timedelta(hours=1)
+app_logger = logging.getLogger("conspectum.web")
 
 allow_insecure_ssl = os.environ.get("ALLOW_INSECURE_SSL", "").lower() in {
     "1",
@@ -89,6 +204,54 @@ ai = openai.AsyncOpenAI(
     api_key=os.environ["AI_API_KEY"],
     http_client=http_client,
 )
+
+
+@dataclass(frozen=True)
+class RateLimitRule:
+    name: str
+    limit: int
+    window_seconds: int
+
+
+class InMemoryRateLimiter:
+    def __init__(self):
+        self._buckets: dict[tuple[str, str], deque[float]] = {}
+        self._lock = Lock()
+
+    def check(self, key: str, rule: RateLimitRule) -> Optional[int]:
+        now = time.monotonic()
+        bucket_key = (rule.name, key)
+
+        with self._lock:
+            bucket = self._buckets.setdefault(bucket_key, deque())
+            cutoff = now - rule.window_seconds
+
+            while bucket and bucket[0] <= cutoff:
+                bucket.popleft()
+
+            if len(bucket) >= rule.limit:
+                retry_after = max(1, int(rule.window_seconds - (now - bucket[0])))
+                return retry_after
+
+            bucket.append(now)
+
+            if not bucket:
+                self._buckets.pop(bucket_key, None)
+
+        return None
+
+    def clear(self) -> None:
+        with self._lock:
+            self._buckets.clear()
+
+
+RATE_LIMITER = InMemoryRateLimiter()
+RATE_LIMIT_RULES = {
+    ("POST", "/upload"): RateLimitRule("upload", 6, 300),
+    ("POST", "/upload-url"): RateLimitRule("upload-url", 4, 300),
+    ("GET", "/bundle"): RateLimitRule("bundle", 30, 60),
+    ("GET", "/status"): RateLimitRule("status", 180, 60),
+}
 
 
 class WebLogger(Logger):
@@ -138,6 +301,286 @@ class WebLogger(Logger):
         set_task_stage(self.task_id, stage, progress)
 
 
+def request_is_https(request: Request) -> bool:
+    forwarded_proto = request.headers.get("x-forwarded-proto", "")
+    return request.url.scheme == "https" or forwarded_proto.lower() == "https"
+
+
+def add_security_headers(request: Request, response) -> None:
+    response.headers.setdefault("Content-Security-Policy", SECURITY_CSP)
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
+    response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+    response.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+
+    if request.url.path == "/" or request.url.path.startswith(("/upload", "/status/", "/bundle/")):
+        response.headers.setdefault("Cache-Control", "no-store")
+
+    if SECURE_HSTS_SECONDS > 0 and request_is_https(request):
+        response.headers.setdefault(
+            "Strict-Transport-Security",
+            f"max-age={SECURE_HSTS_SECONDS}; includeSubDomains",
+        )
+
+
+def get_client_identifier(request: Request) -> str:
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown"
+
+
+def get_rate_limit_rule(request: Request) -> Optional[RateLimitRule]:
+    path = request.url.path
+    if request.method == "GET" and path.startswith("/status/"):
+        return RATE_LIMIT_RULES[("GET", "/status")]
+    if request.method == "GET" and path.startswith("/bundle/"):
+        return RATE_LIMIT_RULES[("GET", "/bundle")]
+    return RATE_LIMIT_RULES.get((request.method, path))
+
+
+def resolve_path_within(base_dir: str, candidate_path: str) -> str:
+    base = Path(base_dir).resolve()
+    candidate = Path(candidate_path).resolve()
+    try:
+        candidate.relative_to(base)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="File not found") from exc
+    return str(candidate)
+
+
+def is_hidden_or_suspicious_filename(filename: str) -> bool:
+    basename = Path(filename).name.strip()
+    if not basename or basename in {".", ".."} or basename.startswith("."):
+        return True
+
+    suffixes = [suffix.lower() for suffix in Path(basename).suffixes]
+    if not suffixes:
+        return True
+
+    return any(suffix in SUSPICIOUS_DOUBLE_EXTENSIONS for suffix in suffixes[:-1])
+
+
+def sanitize_source_name(name: Optional[str], fallback: str = "audio") -> str:
+    basename = Path(name or "").name
+    cleaned = re.sub(r"[\x00-\x1f\x7f]+", "", basename).strip()
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    if not cleaned:
+        return fallback
+    return cleaned[:SAFE_FILENAME_LIMIT]
+
+
+def summarize_source_url(audio_url: str) -> str:
+    parsed = urlparse(audio_url)
+    filename = sanitize_source_name(unquote(Path(parsed.path).name), fallback="")
+    base = parsed.netloc or "remote-audio"
+    if filename:
+        return f"{base}/{filename}"[:SAFE_FILENAME_LIMIT]
+    return base[:SAFE_FILENAME_LIMIT]
+
+
+def safe_internal_audio_name(filename: Optional[str], mime_type: Optional[str]) -> str:
+    suffix = guess_audio_suffix(filename=filename, mime_type=mime_type)
+    if suffix not in SUPPORTED_AUDIO_EXTENSIONS:
+        suffix = ".wav"
+    return f"upload{suffix}"
+
+
+def sniff_audio_container(audio_bytes: bytes) -> Optional[str]:
+    header = audio_bytes[:64]
+
+    if len(header) >= 12 and header[:4] == b"RIFF" and header[8:12] == b"WAVE":
+        return "wav"
+    if header.startswith(b"fLaC"):
+        return "flac"
+    if header.startswith(b"OggS"):
+        return "ogg"
+    if header.startswith(b"\x1a\x45\xdf\xa3"):
+        return "webm"
+    if len(header) >= 12 and header[4:8] == b"ftyp":
+        return "mp4-family"
+    if header.startswith(b"ID3"):
+        return "mp3-family"
+    if len(header) >= 2 and header[0] == 0xFF and (header[1] & 0xE0) == 0xE0:
+        return "mp3-family"
+    return None
+
+
+def validate_audio_payload(
+    *,
+    filename: Optional[str],
+    mime_type: Optional[str],
+    audio_bytes: bytes,
+) -> str:
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded audio file is empty.")
+
+    if filename and is_hidden_or_suspicious_filename(filename):
+        raise HTTPException(status_code=400, detail="Suspicious file name is not allowed.")
+
+    if not is_supported_audio(filename, mime_type):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Supported audio formats: .wav, .mp3, .m4a, .ogg, .opus, "
+                ".flac, .aac, .mp4, .m4b, .webm"
+            ),
+        )
+
+    sniffed = sniff_audio_container(audio_bytes)
+    if sniffed is None:
+        raise HTTPException(
+            status_code=400,
+            detail="The uploaded file does not look like a supported audio container.",
+        )
+
+    suffix = Path(filename or "").suffix.lower()
+    mime = (mime_type or "").split(";")[0].strip().lower()
+
+    if sniffed == "wav" and suffix not in {".wav", ""} and mime not in {"", "audio/wav", "audio/x-wav"}:
+        raise HTTPException(status_code=400, detail="The uploaded WAV file metadata looks inconsistent.")
+    if sniffed == "flac" and suffix not in {".flac", ""} and mime not in {"", "audio/flac", "audio/x-flac"}:
+        raise HTTPException(status_code=400, detail="The uploaded FLAC file metadata looks inconsistent.")
+    if sniffed == "ogg" and suffix not in {".ogg", ".oga", ".opus", ""} and mime not in {"", "audio/ogg", "audio/opus"}:
+        raise HTTPException(status_code=400, detail="The uploaded OGG/Opus file metadata looks inconsistent.")
+    if sniffed == "webm" and suffix not in {".webm", ""} and mime not in {"", "audio/webm", "video/webm"}:
+        raise HTTPException(status_code=400, detail="The uploaded WebM file metadata looks inconsistent.")
+    if sniffed == "mp4-family" and suffix not in {".m4a", ".mp4", ".m4b", ""} and mime not in {"", "audio/mp4"}:
+        raise HTTPException(status_code=400, detail="The uploaded MP4/M4A file metadata looks inconsistent.")
+    if sniffed == "mp3-family" and suffix not in {".mp3", ".aac", ""} and mime not in {"", "audio/mpeg", "audio/mp3", "audio/aac"}:
+        raise HTTPException(status_code=400, detail="The uploaded MP3/AAC file metadata looks inconsistent.")
+
+    return safe_internal_audio_name(filename, mime_type)
+
+
+async def read_validated_upload(file: UploadFile) -> tuple[bytes, str, str]:
+    original_name = sanitize_source_name(
+        file.filename,
+        fallback=safe_internal_audio_name(file.filename, file.content_type),
+    )
+    chunks: list[bytes] = []
+    total_bytes = 0
+
+    try:
+        while True:
+            chunk = await file.read(UPLOAD_READ_CHUNK_SIZE)
+            if not chunk:
+                break
+            total_bytes += len(chunk)
+            if total_bytes > MAX_UPLOAD_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Audio file is too large. Maximum allowed size is {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
+                )
+            chunks.append(chunk)
+    finally:
+        await file.close()
+
+    audio_bytes = b"".join(chunks)
+    internal_name = validate_audio_payload(
+        filename=original_name,
+        mime_type=file.content_type,
+        audio_bytes=audio_bytes,
+    )
+    return audio_bytes, original_name, internal_name
+
+
+def sanitize_public_error_text(text: str) -> str:
+    sanitized = text or "Processing failed."
+    sanitized = sanitized.replace(BASE_DIR, "<app>")
+    sanitized = sanitized.replace(STATIC_DIR, "<static>")
+    sanitized = sanitized.replace(LOGS_DIR, "<logs>")
+
+    for pattern, replacement in PUBLIC_ERROR_REDACTIONS:
+        sanitized = pattern.sub(replacement, sanitized)
+
+    sanitized = re.sub(r"[A-Za-z]:\\[^:\n]+", "<path>", sanitized)
+    sanitized = re.sub(r"/[^:\n]*/(?:tmp|temp|private|home)[^:\n]*", "<path>", sanitized)
+    sanitized = re.sub(r"\s+", " ", sanitized).strip()
+    return sanitized[:SAFE_TEXT_LIMIT] or "Processing failed."
+
+
+def build_public_error_message(exc: Exception) -> str:
+    raw_message = sanitize_public_error_text(str(exc))
+
+    if isinstance(exc, (RuntimeError, ValueError, HTTPException)):
+        return raw_message
+
+    if exc.__class__.__name__ in {
+        "APIConnectionError",
+        "APITimeoutError",
+        "RateLimitError",
+        "AuthenticationError",
+    }:
+        return "The AI provider request failed. Please try again in a moment."
+
+    return "Processing failed due to an internal server error."
+
+
+def serialize_task(task: dict) -> dict:
+    public_task = {}
+    for key in PUBLIC_TASK_FIELDS:
+        value = task.get(key)
+        if isinstance(value, datetime):
+            public_task[key] = value.isoformat()
+        elif key == "messages":
+            public_task[key] = [str(message)[:SAFE_TEXT_LIMIT] for message in (value or [])]
+        else:
+            public_task[key] = value
+    return public_task
+
+
+def safe_remove_file(file_path: Optional[str]) -> None:
+    if not file_path:
+        return
+
+    try:
+        resolved = resolve_path_within(RESULTS_DIR, file_path)
+    except HTTPException:
+        app_logger.warning("Skipped deletion for unexpected file path", extra={"path": file_path})
+        return
+
+    try:
+        os.remove(resolved)
+    except FileNotFoundError:
+        return
+    except OSError:
+        app_logger.warning("Failed to remove generated artifact", extra={"path": resolved})
+
+
+async def ensure_public_hostname(hostname: str, port: int) -> None:
+    try:
+        addrinfo = await asyncio.to_thread(
+            socket.getaddrinfo,
+            hostname,
+            port,
+            socket.AF_UNSPEC,
+            socket.SOCK_STREAM,
+        )
+    except socket.gaierror as exc:
+        raise RuntimeError("The remote host could not be resolved.") from exc
+
+    seen_ip = False
+    for _, _, _, _, sockaddr in addrinfo:
+        host_ip = ipaddress.ip_address(sockaddr[0])
+        seen_ip = True
+        if (
+            host_ip.is_private
+            or host_ip.is_loopback
+            or host_ip.is_link_local
+            or host_ip.is_multicast
+            or host_ip.is_reserved
+            or host_ip.is_unspecified
+        ):
+            raise RuntimeError(
+                "Private and local network URLs are not allowed for remote audio downloads."
+            )
+
+    if not seen_ip:
+        raise RuntimeError("The remote host did not resolve to a public IP address.")
+
+
 def cleanup_expired_tasks() -> None:
     now = datetime.now(timezone.utc)
     expired_ids = [
@@ -149,15 +592,12 @@ def cleanup_expired_tasks() -> None:
     for task_id in expired_ids:
         task = tasks.pop(task_id)
         for key in ("tex_path", "pdf_path", "transcript_path"):
-            file_path = task.get(key)
-            if file_path and os.path.exists(file_path):
-                try:
-                    os.remove(file_path)
-                except OSError:
-                    pass
+            safe_remove_file(task.get(key))
 
 
 def normalize_detail_value(detail: Optional[str]) -> str:
+    if detail is not None and len(detail) > 32:
+        raise HTTPException(status_code=400, detail="Detail value is too long.")
     normalized = (detail or "standard").strip().lower()
     if normalized not in VALID_DETAIL_LEVELS:
         raise HTTPException(
@@ -170,6 +610,9 @@ def normalize_detail_value(detail: Optional[str]) -> str:
 def normalize_language_value(language: Optional[str]) -> Optional[str]:
     if language is None or not language.strip():
         return None
+
+    if len(language) > 16:
+        raise HTTPException(status_code=400, detail="Language value is too long.")
 
     normalized = language.strip().lower()
     if normalized not in VALID_LANGUAGES:
@@ -207,7 +650,7 @@ def create_task_state(
         "error": None,
         "warning": None,
         "source_mode": source_mode,
-        "source_name": source_name,
+        "source_name": sanitize_source_name(source_name, fallback="audio") if source_name else None,
         "source_url": source_url,
         "audio_size_bytes": audio_size_bytes,
         "abstract": None,
@@ -240,6 +683,30 @@ def count_words(text: Optional[str]) -> int:
 def safe_download_name(text: Optional[str], fallback: str) -> str:
     normalized = re.sub(r"[^A-Za-z0-9._-]+", "-", (text or "").strip()).strip("-._")
     return normalized[:80] or fallback
+
+
+def redact_url_for_metadata(source_url: Optional[str]) -> Optional[str]:
+    if not source_url:
+        return None
+
+    parsed = urlparse(source_url)
+    if not parsed.scheme or not parsed.netloc:
+        return None
+
+    safe_path = parsed.path or ""
+    return f"{parsed.scheme}://{parsed.netloc}{safe_path}"[:SAFE_TEXT_LIMIT]
+
+
+def get_task_or_404(task_id: str) -> dict:
+    try:
+        normalized = str(uuid.UUID(task_id))
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=404, detail="Task not found") from exc
+
+    task = tasks.get(normalized)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
 
 
 def get_stage_config(stage_code: Optional[str]) -> dict:
@@ -322,40 +789,54 @@ def infer_stage_update_from_message(text: str) -> Optional[tuple[str, Optional[i
     return None
 
 
-def validate_remote_audio_url(audio_url: str) -> None:
-    parsed = urlparse(audio_url.strip())
+async def validate_remote_audio_url(audio_url: str) -> str:
+    normalized = audio_url.strip()
+    if not normalized:
+        raise RuntimeError("Audio URL is required.")
+    if len(normalized) > MAX_REMOTE_URL_LENGTH:
+        raise RuntimeError("The provided URL is too long.")
+
+    parsed = urlparse(normalized)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise RuntimeError("Enter a valid direct http:// or https:// link to an audio file.")
+    if parsed.username or parsed.password:
+        raise RuntimeError("Authenticated URLs are not allowed for remote audio downloads.")
+
+    try:
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    except ValueError as exc:
+        raise RuntimeError("The provided URL contains an invalid port.") from exc
 
     hostname = parsed.hostname
     if not hostname:
         raise RuntimeError("The provided URL is missing a hostname.")
-
     if hostname.lower() == "localhost":
         raise RuntimeError("Localhost URLs are not allowed for remote audio downloads.")
 
     try:
         host_ip = ipaddress.ip_address(hostname)
     except ValueError:
-        return
+        await ensure_public_hostname(hostname, port)
+    else:
+        if (
+            host_ip.is_private
+            or host_ip.is_loopback
+            or host_ip.is_link_local
+            or host_ip.is_multicast
+            or host_ip.is_reserved
+            or host_ip.is_unspecified
+        ):
+            raise RuntimeError(
+                "Private and local network URLs are not allowed for remote audio downloads."
+            )
 
-    if (
-        host_ip.is_private
-        or host_ip.is_loopback
-        or host_ip.is_link_local
-        or host_ip.is_multicast
-        or host_ip.is_reserved
-        or host_ip.is_unspecified
-    ):
-        raise RuntimeError(
-            "Private and local network URLs are not allowed for remote audio downloads."
-        )
+    return normalized
 
 
 def build_remote_audio_name(audio_url: str, content_type: str | None) -> str:
     parsed = urlparse(audio_url)
     raw_name = os.path.basename(parsed.path)
-    filename = unquote(raw_name) if raw_name else "remote-audio"
+    filename = sanitize_source_name(unquote(raw_name), fallback="remote-audio")
 
     if not os.path.splitext(filename)[1]:
         filename += guess_audio_suffix(filename=filename, mime_type=content_type)
@@ -367,63 +848,89 @@ async def download_audio_from_url(
     audio_url: str,
     logger: WebLogger,
 ) -> tuple[bytes, str, Optional[str]]:
-    validate_remote_audio_url(audio_url)
+    normalized_url = await validate_remote_audio_url(audio_url)
 
     await logger.stage("download_audio", 0)
     await logger.partial_result("Fetching audio from the provided URL...")
 
     timeout = httpx.Timeout(900.0, connect=30.0)
-    async with http_client.stream(
-        "GET",
-        audio_url,
-        follow_redirects=True,
-        timeout=timeout,
-    ) as response:
-        response.raise_for_status()
+    request_url = normalized_url
+    redirects = 0
 
-        content_type_header = (
-            (response.headers.get("content-type") or "")
-            .split(";")[0]
-            .strip()
-            .lower()
-        )
-        filename = build_remote_audio_name(str(response.url), content_type_header)
-
-        if not is_supported_audio(filename, content_type_header):
-            raise RuntimeError(
-                "The URL does not look like a supported audio file. "
-                "Use a direct link to .wav, .mp3, .m4a, .ogg, .opus, .flac, .aac, .mp4, or .webm."
-            )
-
-        content_length = response.headers.get("content-length")
-        expected_bytes = int(content_length) if content_length and content_length.isdigit() else None
-
-        if expected_bytes and expected_bytes > REMOTE_AUDIO_MAX_BYTES:
-            max_mb = REMOTE_AUDIO_MAX_BYTES // (1024 * 1024)
-            raise RuntimeError(
-                f"Remote audio is too large for the web worker limit ({max_mb} MB)."
-            )
-
-        total_bytes = 0
-        chunks: list[bytes] = []
-
-        async for chunk in response.aiter_bytes():
-            if not chunk:
+    while True:
+        async with http_client.stream(
+            "GET",
+            request_url,
+            follow_redirects=False,
+            timeout=timeout,
+        ) as response:
+            if response.status_code in {301, 302, 303, 307, 308}:
+                location = response.headers.get("location")
+                if not location:
+                    raise RuntimeError("The remote server returned an empty redirect.")
+                redirects += 1
+                if redirects > MAX_REMOTE_REDIRECTS:
+                    raise RuntimeError("Too many redirects while fetching remote audio.")
+                request_url = str(response.url.join(location))
+                request_url = await validate_remote_audio_url(request_url)
                 continue
-            total_bytes += len(chunk)
-            if total_bytes > REMOTE_AUDIO_MAX_BYTES:
+
+            if response.status_code >= 400:
+                raise RuntimeError(
+                    f"Remote audio download failed with HTTP {response.status_code}."
+                )
+
+            content_type_header = (
+                (response.headers.get("content-type") or "")
+                .split(";")[0]
+                .strip()
+                .lower()
+            )
+            filename = build_remote_audio_name(str(response.url), content_type_header)
+
+            if not is_supported_audio(filename, content_type_header):
+                raise RuntimeError(
+                    "The URL does not look like a supported audio file. "
+                    "Use a direct link to .wav, .mp3, .m4a, .ogg, .opus, .flac, .aac, .mp4, or .webm."
+                )
+
+            content_length = response.headers.get("content-length")
+            expected_bytes = int(content_length) if content_length and content_length.isdigit() else None
+
+            if expected_bytes and expected_bytes > REMOTE_AUDIO_MAX_BYTES:
                 max_mb = REMOTE_AUDIO_MAX_BYTES // (1024 * 1024)
                 raise RuntimeError(
                     f"Remote audio is too large for the web worker limit ({max_mb} MB)."
                 )
-            chunks.append(chunk)
-            if expected_bytes:
-                await logger.progress(total_bytes, expected_bytes)
+
+            total_bytes = 0
+            chunks: list[bytes] = []
+
+            async for chunk in response.aiter_bytes():
+                if not chunk:
+                    continue
+                total_bytes += len(chunk)
+                if total_bytes > REMOTE_AUDIO_MAX_BYTES:
+                    max_mb = REMOTE_AUDIO_MAX_BYTES // (1024 * 1024)
+                    raise RuntimeError(
+                        f"Remote audio is too large for the web worker limit ({max_mb} MB)."
+                    )
+                chunks.append(chunk)
+                if expected_bytes:
+                    await logger.progress(total_bytes, expected_bytes)
+            break
+
+    audio_bytes = b"".join(chunks)
+    validate_audio_payload(
+        filename=filename,
+        mime_type=content_type_header,
+        audio_bytes=audio_bytes,
+    )
 
     await logger.partial_result(
         f"Remote audio downloaded: {round(total_bytes / (1024 * 1024), 1)} MB"
     )
-    return b"".join(chunks), filename, content_type_header or None
+    return audio_bytes, filename, content_type_header or None
 
 
 def build_task_bundle_bytes(task_id: str) -> bytes:
@@ -439,7 +946,7 @@ def build_task_bundle_bytes(task_id: str) -> bytes:
         "detail": task.get("detail"),
         "source_mode": task.get("source_mode"),
         "source_name": task.get("source_name"),
-        "source_url": task.get("source_url"),
+        "source_url": redact_url_for_metadata(task.get("source_url")),
         "audio_size_bytes": task.get("audio_size_bytes"),
         "warning": task.get("warning"),
         "error": task.get("error"),
@@ -463,7 +970,7 @@ def build_task_bundle_bytes(task_id: str) -> bytes:
 
         for archive_name, path in files_to_attach:
             if path and os.path.exists(path):
-                archive.write(path, arcname=archive_name)
+                archive.write(resolve_path_within(RESULTS_DIR, path), arcname=archive_name)
                 attached_any = True
 
         if summary_text:
@@ -485,6 +992,46 @@ def build_task_bundle_bytes(task_id: str) -> bytes:
     return archive_bytes.getvalue()
 
 
+@app.middleware("http")
+async def security_middleware(request: Request, call_next):
+    cleanup_expired_tasks()
+
+    rate_limit_rule = get_rate_limit_rule(request)
+    if rate_limit_rule is not None:
+        client_id = get_client_identifier(request)
+        retry_after = RATE_LIMITER.check(client_id, rate_limit_rule)
+        if retry_after is not None:
+            app_logger.warning(
+                "Rate limit exceeded",
+                extra={"path": request.url.path, "client": client_id, "bucket": rate_limit_rule.name},
+            )
+            response = JSONResponse(
+                status_code=429,
+                content={"detail": "Too many requests. Please slow down and try again shortly."},
+                headers={"Retry-After": str(retry_after)},
+            )
+            add_security_headers(request, response)
+            return response
+
+    response = await call_next(request)
+    add_security_headers(request, response)
+    return response
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    app_logger.exception("Unhandled request error on %s", request.url.path)
+    if request.url.path == "/":
+        response = PlainTextResponse("Internal server error", status_code=500)
+    else:
+        response = JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error"},
+        )
+    add_security_headers(request, response)
+    return response
+
+
 @app.on_event("shutdown")
 async def shutdown_event():
     await http_client.aclose()
@@ -502,30 +1049,23 @@ async def upload_file(
     language: Optional[str] = Form(None),
     detail: Optional[str] = Form("standard"),
 ):
-    cleanup_expired_tasks()
-
     normalized_language = normalize_language_value(language)
     normalized_detail = normalize_detail_value(detail)
-
-    if not is_supported_audio(file.filename, file.content_type):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Supported audio formats: .wav, .mp3, .m4a, .ogg, .opus, "
-                ".flac, .aac, .mp4, .m4b, .webm"
-            ),
-        )
-
-    audio_bytes = await file.read()
+    try:
+        audio_bytes, original_name, internal_name = await read_validated_upload(file)
+    except HTTPException as exc:
+        app_logger.warning("Rejected upload: %s", sanitize_public_error_text(str(exc.detail)))
+        raise
 
     task_id = str(uuid.uuid4())
     tasks[task_id] = create_task_state(
         task_id,
         normalized_detail,
         source_mode="file",
-        source_name=file.filename,
+        source_name=original_name,
         audio_size_bytes=len(audio_bytes),
     )
+    app_logger.info("Accepted file upload task %s", task_id)
 
     logger = WebLogger(task_id)
 
@@ -535,9 +1075,9 @@ async def upload_file(
             audio_bytes=audio_bytes,
             language=normalized_language,
             detail_level=normalized_detail,
-            audio_filename=file.filename,
+            audio_filename=internal_name,
             audio_mime_type=file.content_type,
-            source_name=file.filename,
+            source_name=original_name,
             logger=logger,
         )
     )
@@ -551,18 +1091,13 @@ async def upload_url(
     language: Optional[str] = Form(None),
     detail: Optional[str] = Form("standard"),
 ):
-    cleanup_expired_tasks()
-
-    normalized_url = audio_url.strip()
-    if not normalized_url:
-        raise HTTPException(status_code=400, detail="Audio URL is required.")
-
     normalized_language = normalize_language_value(language)
     normalized_detail = normalize_detail_value(detail)
 
     try:
-        validate_remote_audio_url(normalized_url)
+        normalized_url = await validate_remote_audio_url(audio_url)
     except RuntimeError as exc:
+        app_logger.warning("Rejected remote audio URL: %s", sanitize_public_error_text(str(exc)))
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     task_id = str(uuid.uuid4())
@@ -570,9 +1105,10 @@ async def upload_url(
         task_id,
         normalized_detail,
         source_mode="url",
-        source_name=normalized_url,
+        source_name=summarize_source_url(normalized_url),
         source_url=normalized_url,
     )
+    app_logger.info("Accepted remote URL task %s", task_id)
 
     logger = WebLogger(task_id)
 
@@ -623,7 +1159,7 @@ async def run_processing(
             resolved_source_name = resolved_audio_filename or source_url
             tasks[task_id].update(
                 {
-                    "source_name": resolved_source_name,
+                    "source_name": sanitize_source_name(resolved_source_name, fallback="remote-audio"),
                     "audio_size_bytes": len(resolved_audio_bytes),
                     "updated_at": datetime.now(timezone.utc),
                 }
@@ -631,7 +1167,7 @@ async def run_processing(
         elif resolved_audio_bytes is not None:
             tasks[task_id].update(
                 {
-                    "source_name": resolved_source_name,
+                    "source_name": sanitize_source_name(resolved_source_name, fallback="audio"),
                     "audio_size_bytes": len(resolved_audio_bytes),
                     "updated_at": datetime.now(timezone.utc),
                 }
@@ -651,13 +1187,13 @@ async def run_processing(
         )
 
         transcript_filename = f"transcript_{uuid.uuid4()}.txt"
-        transcript_path = os.path.join(STATIC_DIR, transcript_filename)
+        transcript_path = os.path.join(RESULTS_DIR, transcript_filename)
 
         with open(transcript_path, "w", encoding="utf-8") as file_handle:
             file_handle.write(result.transcript)
 
         tex_filename = f"result_{uuid.uuid4()}.tex"
-        tex_path = os.path.join(STATIC_DIR, tex_filename)
+        tex_path = os.path.join(RESULTS_DIR, tex_filename)
 
         with open(tex_path, "w", encoding="utf-8") as file_handle:
             file_handle.write(result.tex)
@@ -667,7 +1203,7 @@ async def run_processing(
 
         if result.pdf:
             pdf_filename = f"result_{uuid.uuid4()}.pdf"
-            pdf_path = os.path.join(STATIC_DIR, pdf_filename)
+            pdf_path = os.path.join(RESULTS_DIR, pdf_filename)
 
             with open(pdf_path, "wb") as file_handle:
                 file_handle.write(result.pdf)
@@ -709,7 +1245,7 @@ async def run_processing(
                 "tex_path": tex_path,
                 "pdf_path": pdf_path if pdf_filename else None,
                 "warning": warning_message,
-                "source_name": resolved_source_name,
+                "source_name": sanitize_source_name(resolved_source_name, fallback="audio"),
                 "audio_size_bytes": len(resolved_audio_bytes),
                 "abstract": result.abstract,
                 "transcript_preview": make_preview(result.transcript),
@@ -723,14 +1259,17 @@ async def run_processing(
                 ),
             }
         )
+        app_logger.info("Task %s completed successfully", task_id)
     except Exception as exc:
         completed_at = datetime.now(timezone.utc)
+        public_error = build_public_error_message(exc)
+        app_logger.exception("Task %s failed", task_id)
         tasks[task_id].update(
             {
                 "status": "error",
                 "stage_code": "error",
                 "stage": TASK_STAGE_CONFIG["error"]["label"],
-                "error": str(exc),
+                "error": public_error,
                 "updated_at": completed_at,
                 "completed_at": completed_at,
                 "duration_seconds": max(
@@ -743,21 +1282,14 @@ async def run_processing(
 
 @app.get("/status/{task_id}")
 async def get_status(task_id: str):
-    if task_id not in tasks:
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    return tasks[task_id]
+    return serialize_task(get_task_or_404(task_id))
 
 
 @app.get("/bundle/{task_id}")
 async def get_task_bundle(task_id: str):
-    cleanup_expired_tasks()
-
-    if task_id not in tasks:
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    bundle_bytes = build_task_bundle_bytes(task_id)
-    archive_name = safe_download_name(tasks[task_id].get("title"), f"conspectum-{task_id[:8]}")
+    task = get_task_or_404(task_id)
+    bundle_bytes = build_task_bundle_bytes(task["task_id"])
+    archive_name = safe_download_name(task.get("title"), f"conspectum-{task_id[:8]}")
     filename = f"{archive_name}.zip"
 
     return StreamingResponse(
@@ -769,12 +1301,29 @@ async def get_task_bundle(task_id: str):
 
 @app.get("/static/{filename}")
 async def get_file(filename: str):
-    file_path = os.path.join(STATIC_DIR, filename)
+    normalized = filename.strip()
+    if not normalized or len(normalized) > SAFE_FILENAME_LIMIT or normalized != os.path.basename(normalized):
+        raise HTTPException(status_code=404, detail="File not found")
 
+    if normalized in STATIC_ASSET_FILENAMES:
+        file_path = resolve_path_within(STATIC_DIR, os.path.join(STATIC_DIR, normalized))
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="File not found")
+        return FileResponse(file_path)
+
+    if not GENERATED_ARTIFACT_RE.fullmatch(normalized):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    file_path = resolve_path_within(RESULTS_DIR, os.path.join(RESULTS_DIR, normalized))
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
 
-    return FileResponse(file_path)
+    return FileResponse(
+        file_path,
+        filename=normalized,
+        content_disposition_type="attachment",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 if __name__ == "__main__":
